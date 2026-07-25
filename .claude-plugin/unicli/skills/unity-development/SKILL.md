@@ -128,11 +128,12 @@ unicli exec Scene.Screenshot2D '{"lookAt":"Player","offset":[1,0],"size":5,"path
 unicli exec Scene.Screenshot3D '{"lookAt":"Player","yaw":45,"pitch":30,"distance":10,"path":"Screenshots/shot.png"}' --json
 ```
 
-**Capture GameView screenshots:**
+**Capture Game View screenshots (Edit Mode or Play Mode):**
 
 ```bash
-unicli exec Screenshot.CaptureEditMode --json  # Edit Mode
-unicli exec Screenshot.Capture --json          # Play Mode
+unicli exec Screenshot.Capture --json                    # capture in the current mode
+unicli exec Screenshot.Capture '{"mode":"edit"}' --json  # error if the editor is in Play Mode
+unicli exec Screenshot.Capture '{"mode":"play"}' --json  # error if the editor is in Edit Mode
 ```
 
 **Inspect and modify settings:**
