@@ -2544,7 +2544,7 @@ Set the active scene via SceneManager
 
 ### Screenshot.Capture
 
-Capture a screenshot of the Game View and save as PNG (requires Play Mode)
+Capture a screenshot of the Game View and save as PNG (works in both Edit Mode and Play Mode)
 
 **Parameters:**
 
@@ -2552,12 +2552,14 @@ Capture a screenshot of the Game View and save as PNG (requires Play Mode)
 |---|---|
 | `path` | `string` |
 | `superSize` | `int` |
+| `mode` | `string` |
 
 **Response:**
 
 | Field | Type |
 |---|---|
 | `path` | `string` |
+| `mode` | `string` |
 | `width` | `int` |
 | `height` | `int` |
 | `size` | `Int64` |
