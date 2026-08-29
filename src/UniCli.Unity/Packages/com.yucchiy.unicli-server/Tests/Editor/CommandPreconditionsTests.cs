@@ -26,7 +26,8 @@ namespace UniCli.Server.Editor.Tests
         [CommandPrecondition(EditorState = GuardCondition.NotPlayingOrCompiling)]
         private sealed class NeedsBoth { }
 
-        [CommandPrecondition(EditorState = GuardCondition.NotPlaying, ReplacesOpenScenes = true, Destructive = true)]
+        [CommandPrecondition(EditorState = GuardCondition.NotPlaying, ReplacesOpenScenes = true,
+                             Destructive = true, Cancellable = true)]
         private sealed class FullyDeclared { }
 
         [SetUp]
@@ -56,6 +57,7 @@ namespace UniCli.Server.Editor.Tests
             Assert.That(precondition.EditorState, Is.EqualTo(GuardCondition.NotPlaying));
             Assert.That(precondition.ReplacesOpenScenes, Is.True);
             Assert.That(precondition.Destructive, Is.True);
+            Assert.That(precondition.Cancellable, Is.True);
             Assert.That(precondition.IsEmpty, Is.False);
         }
 

@@ -24,6 +24,15 @@ namespace UniCli.Server.Editor
         private Task? _currentCommand;
         private CancellationTokenSource? _currentCommandCts;
 
+        // The command that has been accepted but not yet picked up by the editor update pump.
+        // Without this, a request arriving in that window is refused by a command nobody can
+        // name — the queue is non-empty while CurrentCommandName is still null.
+        private string? _queuedCommandName;
+
+        // Set once per command after cancellation is requested but the command keeps running,
+        // so a command that ignores its token is reported instead of just appearing to hang.
+        private bool _reportedUncooperativeCancel;
+
         private readonly object _pipeServerLock = new();
         private PipeServer? _currentPipeServer;
 
@@ -87,11 +96,18 @@ namespace UniCli.Server.Editor
         public void ProcessCommands()
         {
             if (_currentCommand is { IsCompleted: false })
+            {
+                ReportUncooperativeCancellation();
                 return;
+            }
 
             _currentCommandCts?.Dispose();
             _currentCommandCts = null;
             _currentCommand = null;
+            // Cleared on completion: leaving the last command's name behind makes a later
+            // "server is busy" refusal name a command that already finished.
+            CurrentCommandName = null;
+            _reportedUncooperativeCancel = false;
 
             if (_commandQueue.TryDequeue(out var item))
             {
@@ -99,6 +115,7 @@ namespace UniCli.Server.Editor
                 var commandCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token);
                 _currentCommandCts = commandCts;
                 CurrentCommandName = request.command;
+                _queuedCommandName = null;
                 CurrentCommandStartTime = DateTime.UtcNow;
                 _currentCommand = ProcessCommandAsync(request, commandCts.Token, callback);
             }
@@ -152,20 +169,71 @@ namespace UniCli.Server.Editor
             }
         }
 
+        /// <summary>
+        /// How long a cancelled command may keep running before we say so. Cancellation in .NET
+        /// is cooperative: a handler that never checks its token cannot be stopped, and the
+        /// server's own timeouts only bound how long a *caller* waits. Reporting is what turns
+        /// that from an unexplained hang into a named command.
+        /// </summary>
+        internal static readonly TimeSpan UncooperativeCancelGrace = TimeSpan.FromSeconds(5);
+
+        private void ReportUncooperativeCancellation()
+        {
+            if (_reportedUncooperativeCancel)
+                return;
+            if (_currentCommandCts is not { IsCancellationRequested: true })
+                return;
+
+            if (CurrentCommandStartTime is not { } startedUtc)
+                return;
+
+            var elapsed = DateTime.UtcNow - startedUtc;
+            if (elapsed < UncooperativeCancelGrace)
+                return;
+
+            _reportedUncooperativeCancel = true;
+            _logger($"[UniCli] Command '{CurrentCommandName}' was cancelled but is still running " +
+                    $"after {elapsed.TotalSeconds:F1}s — it does not observe its CancellationToken. " +
+                    "The editor stays occupied until it returns on its own.");
+        }
+
+        /// <summary>
+        /// Builds the refusal for a request that arrives while the single command slot is taken.
+        /// Separated out because the slot has two occupied states and the interesting one is the
+        /// short window where a command is queued but the editor update pump has not picked it
+        /// up yet — reporting "unknown" there tells the caller nothing.
+        /// </summary>
+        internal static string DescribeBusyState(string? runningCommand, string? queuedCommand, DateTime? startedUtc, DateTime nowUtc)
+        {
+            if (runningCommand != null)
+            {
+                var elapsed = startedUtc is { } started ? nowUtc - started : TimeSpan.Zero;
+                var howLong = elapsed > TimeSpan.Zero ? $" (running for {elapsed.TotalSeconds:F1}s)" : "";
+                return $"Server is busy executing '{runningCommand}'{howLong}. " +
+                       "Please retry after the current command completes.";
+            }
+
+            if (queuedCommand != null)
+                return $"Server is busy: '{queuedCommand}' is queued and about to start. " +
+                       "Please retry after the current command completes.";
+
+            return "Server is busy with another command. Please retry after the current command completes.";
+        }
+
         private void OnCommandReceived(CommandRequest request, CancellationToken cancellationToken, Action<CommandResponse> callback)
         {
             if (_currentCommand is { IsCompleted: false } || !_commandQueue.IsEmpty)
             {
-                var busyCommand = CurrentCommandName ?? "unknown";
                 callback(new CommandResponse
                 {
                     success = false,
-                    message = $"Server is busy executing '{busyCommand}'. Please retry after the current command completes.",
+                    message = DescribeBusyState(CurrentCommandName, _queuedCommandName, CurrentCommandStartTime, DateTime.UtcNow),
                     data = ""
                 });
                 return;
             }
 
+            _queuedCommandName = request.command;
             _commandQueue.Enqueue((request, cancellationToken, callback));
         }
 

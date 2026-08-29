@@ -15,6 +15,7 @@ namespace UniCli.Protocol
         public string requiresEditorState;
         public bool replacesOpenScenes;
         public bool destructive;
+        public bool cancellable;
 
         public CommandFieldInfo[] requestFields;
         public CommandFieldInfo[] responseFields;

@@ -92,6 +92,16 @@ namespace UniCli.Server.Editor
 
             var wantsText = request.format == "text";
 
+            // A client that disconnected while its request sat in the queue has already been
+            // answered; starting the work would occupy the editor for a reply nobody reads.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                var cancelledResponse = MakeResponse(false,
+                    $"Command '{request.command}' was cancelled before it started (client disconnected).");
+                cancelledResponse.versionWarning = versionCheck.Warning;
+                return cancelledResponse;
+            }
+
             // Preconditions are declared on the handler and enforced here, so a command cannot
             // opt out of them by forgetting to check. See CommandPreconditions.
             var blocked = CommandPreconditions.Check(

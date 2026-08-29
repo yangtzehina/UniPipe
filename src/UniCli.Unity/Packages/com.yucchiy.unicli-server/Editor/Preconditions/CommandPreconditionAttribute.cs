@@ -30,6 +30,13 @@ namespace UniCli.Server.Editor
         public bool ReplacesOpenScenes { get; set; }
 
         /// <summary>
+        /// True when the command observes its CancellationToken and returns promptly once it is
+        /// signalled. Declared rather than assumed: cancellation is cooperative, so a client that
+        /// disconnects can only expect a prompt release from commands that say they cooperate.
+        /// </summary>
+        public bool Cancellable { get; set; }
+
+        /// <summary>
         /// True when the command deletes, overwrites, or otherwise makes changes that are not
         /// trivially undoable. Advisory metadata for clients today.
         /// </summary>
