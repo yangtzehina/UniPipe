@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace UniCli.Client;
@@ -19,7 +20,14 @@ internal static class OutputWriter
     private static void WriteJson(CliResult result)
     {
         var buffer = new ArrayBufferWriter<byte>();
-        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true });
+        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
+        {
+            Indented = true,
+            // The default encoder escapes ', <, > and every non-ASCII char as \uXXXX so the
+            // output is safe to embed in HTML. CLI output never is, and the escaping makes
+            // compiler diagnostics and any non-English log line unreadable. (upstream #164)
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        });
 
         writer.WriteStartObject();
         writer.WriteBoolean("success", result.Success);
@@ -81,7 +89,14 @@ internal static class OutputWriter
     {
         using var doc = JsonDocument.Parse(json);
         var buffer = new ArrayBufferWriter<byte>();
-        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true });
+        using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions
+        {
+            Indented = true,
+            // The default encoder escapes ', <, > and every non-ASCII char as \uXXXX so the
+            // output is safe to embed in HTML. CLI output never is, and the escaping makes
+            // compiler diagnostics and any non-English log line unreadable. (upstream #164)
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        });
         doc.RootElement.WriteTo(writer);
         writer.Flush();
 
