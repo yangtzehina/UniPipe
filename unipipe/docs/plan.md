@@ -110,19 +110,29 @@ Ordered by dependency, not by appeal. Sources are the tools surveyed in the mark
 Remote Control API, Chrome DevTools Protocol, the Unity MCP family, SingularityGroup's hot reload,
 AltTester, game-ci.
 
+**Status: the first three landed.** What follows marks what is done, what that
+changed, and what is still open. Details in the commit history; the shape of each
+decision is below.
+
 **First, in parallel:**
 
-1. **Unified command routing with transport envelopes.** One command definition; named pipe, HTTP,
+1. **Unified command routing with transport envelopes.** *(partly landed — the
+   routing layer exists and enforces policy; multiple transports do not yet.)*
+   One command definition; named pipe, HTTP,
    MCP and CLI as shells over it. Everything else attaches here. The concurrency and buffering
    conflicts above are all downstream of not having this. Fix JSON output escaping while here —
    the default encoder mangles non-ASCII into `\uXXXX`.
-2. **Self-hosted hot reload.** Harmony whole-method detour plus Mono's `skip_visibility` bit,
+2. **Self-hosted hot reload.** *(proven buildable, not yet built — see
+   [`../poc/hotreload/`](../poc/hotreload/).)* Harmony whole-method detour plus
+   accessibility relaxation,
    replacing the woven-prologue approach — this clears both the void-only and public-only limits
    and, more importantly, retires the dependency that costs us the upgrade tax. Build the private
    access as a replaceable layer (`skip_visibility` → `InternalsVisibleTo` injection → CoreCLR
    EnC), because Unity 6.8 moves the editor off Mono.
-3. **Write safety ring.** Undo by default, batch collapsing, stale-write detection, compile
-   pre-validation, `dry_run` — plus the dirty-scene gate and cancellation from above.
+3. **Write safety ring.** *(undo grouping and the cancellation contract landed;
+   stale-write detection and compile pre-validation are open.)* Undo by default,
+   batch collapsing, stale-write detection, compile pre-validation, `dry_run` —
+   plus the dirty-scene gate and cancellation from above.
 
 **Then:** native MCP (in-process C# SDK, layered tool surface, first-connection approval) and an
 event subscription channel, so clients stop polling for compile state and domain reloads.
@@ -135,6 +145,36 @@ devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions
 measured matrix of stripping levels against reflection capability. Note that avoiding GPL by
 copying designs rather than code addresses copyright only — distributing device-driving capability
 still meets ToS §17.2(gg) separately.
+
+## What M1 changed, concretely
+
+Preconditions are declared and the dispatcher enforces them. Twenty handlers used
+to open with `_guard.BeginScope(...)`; the condition was a per-handler constant,
+so it lifted whole and the boilerplate is gone. A handler that declares nothing is
+unaffected. What did *not* lift is the dirty-scene policy: it reads a request field
+and needs to know which scenes a given request touches, and deserialization happens
+below the dispatcher. Commands declare `ReplacesOpenScenes` anyway, so the risk is
+at least visible where enforcement is not.
+
+Each command's edits now collapse into one undo entry named after the command.
+Before, a command's undo footprint was whatever its mutations happened to register —
+`GameObject.Create` registers the new object, then parents it and adds components
+with raw calls. "One command, one Ctrl+Z" is now a property of the dispatcher.
+
+The single command slot accounts for itself. Ten concurrent requests used to produce
+nine refusals blaming a command called "unknown": the slot has two occupied states
+and the message could only describe one. It now names the queued command as well as
+the running one, and reports how long the running one has been going.
+
+Cancellation got the contract it can actually keep. .NET cancellation is
+cooperative, so a handler that ignores its token cannot be stopped and no amount of
+framework code changes that. What the framework can do, it now does: refuse work for
+a client that already disconnected, let commands declare whether they cooperate, and
+report a command that was cancelled and kept running — which turns an editor that
+looks frozen into a named command that is still busy.
+
+All of it reaches clients through `Commands.List`, so an agent can read what a
+command requires and risks before calling it rather than after.
 
 ## What has actually been verified
 
@@ -179,6 +219,13 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   stopgap needing replacement when Unity 6.8 moves the editor off Mono; `DynamicMethod`'s flag is
   standard .NET and carries to CoreCLR. The one fragile dependency left is Roslyn's internal
   `BinderFlags` — a compile-time reflection lookup that fails loudly, not a native struct layout.
+
+- **The routing and safety work holds up in a live editor**, not only in tests:
+  creating a GameObject with two components and pressing undo once removes it
+  entirely, and `Commands.List` reports 19 commands as single-undo-step, 19 as
+  requiring an editor state, and the three scene commands as replacing open scenes.
+  Unity EditMode 139/139 (28 of them new, covering a dispatcher path that had no
+  coverage at all), client 52/52.
 
 Still assumption: everything beyond replacing a single method body — signature changes, added
 fields, rebinding callers that already resolved the old shape. Those are the cases SingularityGroup
