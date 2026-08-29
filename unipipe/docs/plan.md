@@ -168,6 +168,19 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   makes the 9/9 run green. And **the Harmony build matters**: the NuGet `lib/` assemblies are not
   self-contained and fail in ways that point at the wrong culprit; the GitHub "Fat" release works.
 
-Still assumption: the `skip_visibility` half — compiling a replacement from source that names
-private members directly, instead of reaching them by reflection as the PoC does. That is Stage B,
-and it is what turns "the mechanism works" into "edit any method body and reload it".
+- **Private access needs no runtime hacking** — Stage B, 10/10 across two probes. Private access is
+  refused twice, and each barrier has a supported key: the compiler is opened with Roslyn's
+  `MetadataImportOptions.All` plus `BinderFlags.IgnoreAccessibility`, and the runtime with
+  `DynamicMethod(skipVisibility: true)`, reached by re-emitting the compiled body through MonoMod's
+  `DynamicMethodDefinition`. The full chain runs: source naming private members → compiled →
+  re-emitted → detoured → executing with private state reachable.
+
+  This is better than the plan assumed. The `skip_visibility` layer was scoped as a Mono-only
+  stopgap needing replacement when Unity 6.8 moves the editor off Mono; `DynamicMethod`'s flag is
+  standard .NET and carries to CoreCLR. The one fragile dependency left is Roslyn's internal
+  `BinderFlags` — a compile-time reflection lookup that fails loudly, not a native struct layout.
+
+Still assumption: everything beyond replacing a single method body — signature changes, added
+fields, rebinding callers that already resolved the old shape. Those are the cases SingularityGroup
+handles by recompiling affected callers; known engineering shapes rather than open questions, now
+that the mechanism underneath is established.

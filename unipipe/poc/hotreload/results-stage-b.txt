@@ -1,0 +1,15 @@
+PASS B0.baseline — CallSecret(1)=71 (expect 71 = _hidden 7 * 10 + 1)
+PASS B1.control: private access refused without the flag — FieldAccessException as expected
+PASS B2.DynamicMethod skipVisibility reads private field — _hidden=7 (expect 7)
+PASS B3.DynamicMethod skipVisibility calls private method — Secret(2)=72 (expect 72)
+PASS B4.detour + private access, no reflection at call time — CallSecret(1)=7001 (expect 7001 = private _hidden 7 * 1000 + 1)
+PASS B5.supported path available — DynamicMethod skipVisibility carried every case — no _MonoMethod bit poking needed
+HOTRELOAD POC STAGE B: PASS pass=6 fail=0
+PASS B0.baseline — CallSecret(1)=71 (expect 71 = _hidden 7 * 10 + 1)
+
+PASS B6.control: compiler refuses private access — (4,46): error CS1061: 'TargetLib' does not contain a definition for '_hidden' and no accessible extension method '_hidden' accepting a first argument of type 'TargetLib' could be found (are you missing a using directive or an assembly reference?)
+PASS B7.compiles with accessibility relaxed — MetadataImportOptions.All + BinderFlags.IgnoreAccessibility, 2560 bytes emitted
+PASS B8.control: loaded assembly still faces the runtime check — FieldAccessException as expected — compiling is not enough; the body has to be re-emitted (B9)
+PASS B9.re-emit via DynamicMethodDefinition — Read(t)=7 — compiled-from-source body reached the private field after re-emit
+HOTRELOAD POC STAGE B2: PASS pass=4 fail=0
+chain: source naming privates -> Roslyn (accessibility relaxed) -> assembly -> DMD re-emit -> runs.
