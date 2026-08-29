@@ -121,8 +121,8 @@ decision is below.
    MCP and CLI as shells over it. Everything else attaches here. The concurrency and buffering
    conflicts above are all downstream of not having this. Fix JSON output escaping while here —
    the default encoder mangles non-ASCII into `\uXXXX`.
-2. **Self-hosted hot reload.** *(proven buildable, not yet built — see
-   [`../poc/hotreload/`](../poc/hotreload/).)* Harmony whole-method detour plus
+2. **Self-hosted hot reload.** *(landed — `HotReload.Apply`, see
+   [`hot-reload.md`](hot-reload.md).)* Harmony whole-method detour plus
    accessibility relaxation,
    replacing the woven-prologue approach — this clears both the void-only and public-only limits
    and, more importantly, retires the dependency that costs us the upgrade tax. Build the private
@@ -249,6 +249,12 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   requiring an editor state, and the three scene commands as replacing open scenes.
   Unity EditMode 153/153 (42 of them new, covering a dispatcher path that had no
   coverage at all), client 52/52.
+
+- **Hot reload is a command now**, not a proof: `HotReload.Apply` compiles an edited file on its
+  own, matches each recompiled method to the loaded one, and detours it. Verified against a live
+  editor — an object called three times kept its counter and its identity across an edit that
+  changed its result and read a private field, with no recompile and no domain reload. The layout
+  check refuses a type whose fields moved, which is the difference between this and a demo.
 
 Still assumption: everything beyond replacing a single method body — signature changes, added
 fields, rebinding callers that already resolved the old shape. Those are the cases SingularityGroup
