@@ -156,5 +156,18 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   failure attributable to any of it. This is the most direct evidence that the absorb-and-fork
   route is low-risk.
 
-Still assumption: that Harmony detour plus `skip_visibility` works on this Mono. That is the next
-thing to establish, because the strategy above rests on it.
+- **Detour-based hot reload works on this Mono** — Stage A of the PoC, 9/9. A private instance
+  method returning a value was replaced at runtime and the replacement read the target's private
+  field: both of the weaver's limits cleared in one assertion. Instance state survives patching and
+  unpatching restores the original. Details and the reproduction in
+  [`../poc/hotreload/`](../poc/hotreload/).
+
+  Two things the PoC pinned down that change how this gets built. **JIT inlining is the real
+  constraint** — Mono inlines small methods, and detouring one has no effect at a call site that was
+  already inlined; `MONO_INLINELIMIT=0` in the editor environment clears it globally, which is what
+  makes the 9/9 run green. And **the Harmony build matters**: the NuGet `lib/` assemblies are not
+  self-contained and fail in ways that point at the wrong culprit; the GitHub "Fat" release works.
+
+Still assumption: the `skip_visibility` half — compiling a replacement from source that names
+private members directly, instead of reaching them by reflection as the PoC does. That is Stage B,
+and it is what turns "the mechanism works" into "edit any method body and reload it".
