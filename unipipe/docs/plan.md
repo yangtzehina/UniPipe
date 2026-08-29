@@ -129,8 +129,7 @@ decision is below.
    and, more importantly, retires the dependency that costs us the upgrade tax. Build the private
    access as a replaceable layer (`skip_visibility` → `InternalsVisibleTo` injection → CoreCLR
    EnC), because Unity 6.8 moves the editor off Mono.
-3. **Write safety ring.** *(undo grouping and the cancellation contract landed;
-   stale-write detection and compile pre-validation are open.)* Undo by default,
+3. **Write safety ring.** *(landed.)* Undo by default,
    batch collapsing, stale-write detection, compile pre-validation, `dry_run` —
    plus the dirty-scene gate and cancellation from above.
 
@@ -175,6 +174,23 @@ looks frozen into a named command that is still busy.
 
 All of it reaches clients through `Commands.List`, so an agent can read what a
 command requires and risks before calling it rather than after.
+
+Two more hazards close the ring, both cases where an agent can do damage it cannot
+see, and both needing the deserialized request — so they are helpers commands opt
+into rather than gates the dispatcher imposes.
+
+`AssemblyDefinition.AddReference` and `RemoveReference` read a file, change it and
+write it back; anything that touched it in between was discarded without a word.
+`Get` now reports a fingerprint and the mutating commands take it back as
+`expectedSha`, refusing when the file has moved on. Omitting it opts out.
+
+And writing a broken `.cs` is not an ordinary error: a project that fails to
+compile can drop the editor into Safe Mode, where the server is gone and nothing
+can reach it — including whatever would put the file back. We hit that during the
+package port. `Script.Validate` compiles source in isolation and reports errors
+with line and column, so the check happens before the file is written; it reuses
+eval's compilation path rather than adding a Roslyn dependency, and never loads
+what it builds.
 
 ## What has actually been verified
 
@@ -224,7 +240,7 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   creating a GameObject with two components and pressing undo once removes it
   entirely, and `Commands.List` reports 19 commands as single-undo-step, 19 as
   requiring an editor state, and the three scene commands as replacing open scenes.
-  Unity EditMode 139/139 (28 of them new, covering a dispatcher path that had no
+  Unity EditMode 153/153 (42 of them new, covering a dispatcher path that had no
   coverage at all), client 52/52.
 
 Still assumption: everything beyond replacing a single method body — signature changes, added
