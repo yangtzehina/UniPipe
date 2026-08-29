@@ -1,0 +1,22 @@
+{
+    "name": "UniCli.Server.Editor.HotReload",
+    "rootNamespace": "UniCli.Server.Editor.Handlers",
+    "references": [
+        "UniCli.Server.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "0Harmony.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNIPIPE_HOTRELOAD"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -10,3 +10,4 @@ using System.Runtime.CompilerServices;
 [assembly: GenerateCommands("UnityEditor.EditorSettings", "EditorSettings")]
 [assembly: GenerateCommands("UnityEditor.EditorUserBuildSettings", "EditorUserBuildSettings")]
 [assembly: GenerateCommands("UnityEngine.Material", "Material", ResolveMode = InstanceResolveMode.Guid, Module = "Assets")]
+[assembly: InternalsVisibleTo("UniCli.Server.Editor.HotReload")]
