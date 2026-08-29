@@ -6,6 +6,7 @@ using UnityEditor;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Animation")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class AnimatorControllerAddStateHandler
         : CommandHandler<AnimatorControllerAddStateRequest, AnimatorControllerAddStateResponse>
     {

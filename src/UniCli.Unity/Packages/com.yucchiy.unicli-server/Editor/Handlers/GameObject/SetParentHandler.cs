@@ -7,6 +7,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("GameObject")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class SetParentHandler : CommandHandler<SetParentRequest, SetParentResponse>
     {
         public override string CommandName => "GameObject.SetParent";

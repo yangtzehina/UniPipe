@@ -8,6 +8,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("GameObject")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class CreatePrimitiveHandler : CommandHandler<CreatePrimitiveRequest, CreateGameObjectResponse>
     {
         public override string CommandName => "GameObject.CreatePrimitive";

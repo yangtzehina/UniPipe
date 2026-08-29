@@ -9,6 +9,15 @@ namespace UniCli.Protocol
         public string description;
         public bool builtIn;
         public string module;
+
+        // Declared traits (see CommandPreconditionAttribute on the server). Null/false when the
+        // command declares nothing, so older servers and cached listings stay valid.
+        public string requiresEditorState;
+        public bool replacesOpenScenes;
+        public bool destructive;
+        public bool cancellable;
+        public bool singleUndoStep;
+
         public CommandFieldInfo[] requestFields;
         public CommandFieldInfo[] responseFields;
         public CommandTypeDetail[] requestTypeDetails;

@@ -7,6 +7,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Animation")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class AnimatorSetControllerHandler
         : CommandHandler<AnimatorSetControllerRequest, AnimatorSetControllerResponse>
     {

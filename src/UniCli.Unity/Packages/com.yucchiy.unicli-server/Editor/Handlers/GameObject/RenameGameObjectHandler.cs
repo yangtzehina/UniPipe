@@ -6,6 +6,7 @@ using UnityEditor;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("GameObject")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class RenameGameObjectHandler : CommandHandler<RenameGameObjectRequest, RenameGameObjectResponse>
     {
         public override string CommandName => "GameObject.Rename";

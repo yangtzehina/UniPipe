@@ -8,6 +8,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("GameObject")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class DuplicateGameObjectHandler : CommandHandler<DuplicateGameObjectRequest, CreateGameObjectResponse>
     {
         public override string CommandName => "GameObject.Duplicate";

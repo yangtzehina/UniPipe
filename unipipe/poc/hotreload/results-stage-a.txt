@@ -1,0 +1,15 @@
+PASS A0.baseline private+return — CallCompute(1)=43 (expect 43)
+PASS A0.baseline static+return — CallDescribe="v1:x"
+PASS A0.baseline void instance — LastNote="v1:n"
+PASS A1.detour private method with return value — CallCompute(1)=42001 (expect 42001 = private field 42 reached and body replaced)
+PASS A1b.same method, NoInlining — CallComputeNoInline(1)=42001 (expect 42001)
+PASS A2.detour private static method — CallDescribe="v2:x" (expect "v2:x")
+PASS A3.detour void instance method — LastNote="v2:n"
+PASS A4.instance state preserved — PublicSeed=100
+PASS A5.unpatch restores original — CallCompute(1)=43 (expect 43)
+HOTRELOAD POC STAGE A: PASS pass=9 fail=0
+
+# Run 4 (default inlining) — A1 fails, A1b passes:
+FAIL A1.detour private method with return value — CallCompute(1)=43 (expect 42001 = private field 42 reached and body replaced)
+PASS A1b.same method, NoInlining — CallComputeNoInline(1)=42001 (expect 42001)
+HOTRELOAD POC STAGE A: FAIL pass=8 fail=1

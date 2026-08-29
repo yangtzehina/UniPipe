@@ -156,5 +156,31 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   failure attributable to any of it. This is the most direct evidence that the absorb-and-fork
   route is low-risk.
 
-Still assumption: that Harmony detour plus `skip_visibility` works on this Mono. That is the next
-thing to establish, because the strategy above rests on it.
+- **Detour-based hot reload works on this Mono** — Stage A of the PoC, 9/9. A private instance
+  method returning a value was replaced at runtime and the replacement read the target's private
+  field: both of the weaver's limits cleared in one assertion. Instance state survives patching and
+  unpatching restores the original. Details and the reproduction in
+  [`../poc/hotreload/`](../poc/hotreload/).
+
+  Two things the PoC pinned down that change how this gets built. **JIT inlining is the real
+  constraint** — Mono inlines small methods, and detouring one has no effect at a call site that was
+  already inlined; `MONO_INLINELIMIT=0` in the editor environment clears it globally, which is what
+  makes the 9/9 run green. And **the Harmony build matters**: the NuGet `lib/` assemblies are not
+  self-contained and fail in ways that point at the wrong culprit; the GitHub "Fat" release works.
+
+- **Private access needs no runtime hacking** — Stage B, 10/10 across two probes. Private access is
+  refused twice, and each barrier has a supported key: the compiler is opened with Roslyn's
+  `MetadataImportOptions.All` plus `BinderFlags.IgnoreAccessibility`, and the runtime with
+  `DynamicMethod(skipVisibility: true)`, reached by re-emitting the compiled body through MonoMod's
+  `DynamicMethodDefinition`. The full chain runs: source naming private members → compiled →
+  re-emitted → detoured → executing with private state reachable.
+
+  This is better than the plan assumed. The `skip_visibility` layer was scoped as a Mono-only
+  stopgap needing replacement when Unity 6.8 moves the editor off Mono; `DynamicMethod`'s flag is
+  standard .NET and carries to CoreCLR. The one fragile dependency left is Roslyn's internal
+  `BinderFlags` — a compile-time reflection lookup that fails loudly, not a native struct layout.
+
+Still assumption: everything beyond replacing a single method body — signature changes, added
+fields, rebinding callers that already resolved the old shape. Those are the cases SingularityGroup
+handles by recompiling affected callers; known engineering shapes rather than open questions, now
+that the mechanism underneath is established.

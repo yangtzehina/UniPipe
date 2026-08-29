@@ -92,6 +92,33 @@ namespace UniCli.Server.Editor
 
             var wantsText = request.format == "text";
 
+            // A client that disconnected while its request sat in the queue has already been
+            // answered; starting the work would occupy the editor for a reply nobody reads.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                var cancelledResponse = MakeResponse(false,
+                    $"Command '{request.command}' was cancelled before it started (client disconnected).");
+                cancelledResponse.versionWarning = versionCheck.Warning;
+                return cancelledResponse;
+            }
+
+            // Preconditions are declared on the handler and enforced here, so a command cannot
+            // opt out of them by forgetting to check. See CommandPreconditions.
+            var precondition = CommandPreconditions.Resolve(handler.GetType());
+            var blocked = CommandPreconditions.Check(precondition, request.command);
+            if (blocked != null)
+            {
+                var blockedResponse = MakeResponse(false, blocked);
+                blockedResponse.versionWarning = versionCheck.Warning;
+                return blockedResponse;
+            }
+
+            // Collapsed in every exit path below, including failures: a command that threw
+            // halfway still made the changes it made, and they should come back in one step.
+            var undoGroup = precondition.SingleUndoStep
+                ? UndoGroup.Begin(request.command)
+                : UndoGroup.None;
+
             try
             {
                 var result = await handler.ExecuteAsync(request, cancellationToken);
@@ -110,6 +137,10 @@ namespace UniCli.Server.Editor
                 var response = MakeResponse(false, $"Command failed: {ex.Message}");
                 response.versionWarning = versionCheck.Warning;
                 return response;
+            }
+            finally
+            {
+                undoGroup.Collapse();
             }
         }
 
