@@ -135,7 +135,7 @@ public static class {className}
         /// <summary>
         /// Collects additional references that should be passed explicitly to eval compilation.
         /// </summary>
-        private static string[] GetAdditionalReferences()
+        internal static string[] GetAdditionalReferences()
         {
             var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var refs = new System.Collections.Generic.List<string>();

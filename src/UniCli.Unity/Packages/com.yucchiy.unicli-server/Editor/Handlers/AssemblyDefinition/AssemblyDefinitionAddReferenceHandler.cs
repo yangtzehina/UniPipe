@@ -32,6 +32,10 @@ namespace UniCli.Server.Editor.Handlers
             if (string.IsNullOrEmpty(asmdefPath))
                 throw new ArgumentException($"Assembly definition not found: {request.name}");
 
+            var stale = StaleWriteGuard.CheckFile(request.expectedSha, asmdefPath, $"Assembly definition '{request.name}'");
+            if (stale != null)
+                throw new CommandFailedException(stale, null);
+
             var json = File.ReadAllText(asmdefPath);
             var data = JsonUtility.FromJson<AssemblyDefinitionData>(json);
 
@@ -123,6 +127,10 @@ namespace UniCli.Server.Editor.Handlers
     {
         public string name;
         public string reference;
+
+        /// <summary>Optional. The sha reported by AssemblyDefinition.Get when this file was read;
+        /// the command refuses rather than overwriting if the file has changed since.</summary>
+        public string expectedSha;
     }
 
     [Serializable]

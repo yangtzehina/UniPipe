@@ -92,6 +92,7 @@ namespace UniCli.Server.Editor.Handlers
             {
                 name = data.name,
                 path = asmdefPath,
+                sha = ContentHash.OfFile(asmdefPath),
                 rootNamespace = data.rootNamespace ?? "",
                 references = references,
                 includePlatforms = data.includePlatforms ?? Array.Empty<string>(),
@@ -152,6 +153,11 @@ namespace UniCli.Server.Editor.Handlers
     {
         public string name;
         public string path;
+
+        /// <summary>Fingerprint of the file as read. Pass it back as expectedSha to a mutating
+        /// command to have that command refuse if the file changed in the meantime.</summary>
+        public string sha;
+
         public string rootNamespace;
         public string[] references;
         public string[] includePlatforms;
