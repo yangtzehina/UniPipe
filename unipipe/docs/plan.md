@@ -116,9 +116,8 @@ decision is below.
 
 **First, in parallel:**
 
-1. **Unified command routing with transport envelopes.** *(partly landed — the
-   routing layer exists and enforces policy; multiple transports do not yet.)*
-   One command definition; named pipe, HTTP,
+1. **Unified command routing with transport envelopes.** *(landed.)* One command
+   definition; named pipe, HTTP,
    MCP and CLI as shells over it. Everything else attaches here. The concurrency and buffering
    conflicts above are all downstream of not having this. Fix JSON output escaping while here —
    the default encoder mangles non-ASCII into `\uXXXX`.
@@ -183,6 +182,14 @@ into rather than gates the dispatcher imposes.
 write it back; anything that touched it in between was discarded without a word.
 `Get` now reports a fingerprint and the mutating commands take it back as
 `expectedSha`, refusing when the file has moved on. Omitting it opts out.
+
+The routing layer earned its keep: the named pipe and an HTTP loopback transport
+are now two front ends onto the same server. A command POSTed over HTTP goes
+through the same single command slot, the same precondition checks and the same
+undo grouping as one from the CLI — a GameObject created over HTTP is visible over
+the pipe and is removed by a single undo, because both arrived at one dispatcher.
+HTTP is opt-in (`UNICLI_HTTP=1`) and loopback-only with no auth yet, so it stays a
+local convenience until a bearer token is added.
 
 And writing a broken `.cs` is not an ordinary error: a project that fails to
 compile can drop the editor into Safe Mode, where the server is gone and nothing

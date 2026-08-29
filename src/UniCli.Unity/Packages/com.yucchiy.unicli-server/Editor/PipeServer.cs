@@ -12,13 +12,13 @@ using UnityEngine;
 
 namespace UniCli.Server.Editor
 {
-    public sealed class PipeServer : IDisposable
+    public sealed class PipeServer : ICommandTransport
     {
         private const byte AckByte = 0x01;
         private static readonly byte[] AckBuffer = { AckByte };
 
         private readonly string _pipeName;
-        private readonly Action<CommandRequest, CancellationToken, Action<CommandResponse>> _onCommandReceived;
+        private readonly CommandReceivedHandler _onCommandReceived;
         private readonly CancellationTokenSource _cts = new();
         private readonly TaskCompletionSource<bool> _shutdownTcs = new();
         private readonly Task _serverLoop;
@@ -31,9 +31,7 @@ namespace UniCli.Server.Editor
 
         private int _disposed;
 
-        public PipeServer(
-            string pipeName,
-            Action<CommandRequest, CancellationToken, Action<CommandResponse>> onCommandReceived)
+        public PipeServer(string pipeName, CommandReceivedHandler onCommandReceived)
         {
             _pipeName = pipeName ?? throw new ArgumentNullException(nameof(pipeName));
             _onCommandReceived = onCommandReceived ?? throw new ArgumentNullException(nameof(onCommandReceived));

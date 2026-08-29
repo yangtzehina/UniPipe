@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -84,8 +85,19 @@ namespace UniCli.Server.Editor
 
             var pipeName = ProjectIdentifier.GetPipeName();
             _dispatcher = new CommandDispatcher(Services);
+
+            var transports = new List<ICommandTransportFactory> { new PipeTransportFactory(pipeName) };
+
+            // HTTP loopback is opt-in: it exposes command execution to anything on 127.0.0.1 with
+            // no authentication yet, so it stays off unless explicitly asked for.
+            if (Environment.GetEnvironmentVariable("UNICLI_HTTP") == "1")
+            {
+                transports.Add(new HttpTransportFactory(UniCliEditorLog.Log));
+                UniCliEditorLog.Log("[UniCli] HTTP loopback transport enabled (UNICLI_HTTP=1).");
+            }
+
             _server = new UniCliServer(
-                pipeName,
+                transports,
                 _dispatcher,
                 logger: UniCliEditorLog.Log,
                 errorLogger: UniCliEditorLog.LogError

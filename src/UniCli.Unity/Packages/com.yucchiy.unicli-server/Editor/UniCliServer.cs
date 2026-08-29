@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,13 +15,13 @@ namespace UniCli.Server.Editor
     /// </summary>
     public sealed class UniCliServer : IDisposable
     {
-        private readonly string _pipeName;
+        private readonly IReadOnlyList<ICommandTransportFactory> _transportFactories;
         private CommandDispatcher _dispatcher;
         private readonly ConcurrentQueue<(CommandRequest request, CancellationToken cancellationToken, Action<CommandResponse> callback)> _commandQueue;
         private readonly CancellationTokenSource _cts;
         private readonly Action<string> _logger;
         private readonly Action<string> _errorLogger;
-        private readonly Task _serverLoop;
+        private readonly Task[] _serverLoops;
         private Task? _currentCommand;
         private CancellationTokenSource? _currentCommandCts;
 
@@ -33,30 +34,56 @@ namespace UniCli.Server.Editor
         // so a command that ignores its token is reported instead of just appearing to hang.
         private bool _reportedUncooperativeCancel;
 
-        private readonly object _pipeServerLock = new();
-        private PipeServer? _currentPipeServer;
+        // One live transport per factory, replaced when a transport reconnects. Guarded because
+        // Stop() reads them from the main thread while the loops write them from the pool.
+        private readonly object _transportsLock = new();
+        private readonly ICommandTransport?[] _currentTransports;
 
         public string? CurrentCommandName { get; private set; }
         public DateTime? CurrentCommandStartTime { get; private set; }
         public string[] QueuedCommandNames => _commandQueue.ToArray().Select(item => item.request.command).ToArray();
 
         public UniCliServer(
-            string pipeName,
+            IReadOnlyList<ICommandTransportFactory> transportFactories,
             CommandDispatcher dispatcher,
             Action<string> logger,
             Action<string> errorLogger)
         {
-            _pipeName = pipeName ?? throw new ArgumentNullException(nameof(pipeName));
+            if (transportFactories == null)
+                throw new ArgumentNullException(nameof(transportFactories));
+            if (transportFactories.Count == 0)
+                throw new ArgumentException("At least one transport is required.", nameof(transportFactories));
+
+            _transportFactories = transportFactories;
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _errorLogger = errorLogger ?? throw new ArgumentNullException(nameof(errorLogger));
 
             _commandQueue = new ConcurrentQueue<(CommandRequest, CancellationToken, Action<CommandResponse>)>();
             _cts = new CancellationTokenSource();
+            _currentTransports = new ICommandTransport?[transportFactories.Count];
 
-            _serverLoop = Task.Run(
-                async () => await RunServerLoopAsync(_cts.Token),
-                _cts.Token);
+            // One reconnect loop per transport. They all feed the same OnCommandReceived, so they
+            // share the single command slot rather than racing each other.
+            _serverLoops = new Task[transportFactories.Count];
+            for (var i = 0; i < transportFactories.Count; i++)
+            {
+                var index = i;
+                _serverLoops[i] = Task.Run(
+                    async () => await RunTransportLoopAsync(_transportFactories[index], index, _cts.Token),
+                    _cts.Token);
+            }
+        }
+
+        /// <summary>Convenience for the common single-transport case (the named pipe).</summary>
+        public UniCliServer(
+            string pipeName,
+            CommandDispatcher dispatcher,
+            Action<string> logger,
+            Action<string> errorLogger)
+            : this(new ICommandTransportFactory[] { new PipeTransportFactory(pipeName) },
+                   dispatcher, logger, errorLogger)
+        {
         }
 
         private void Stop()
@@ -64,23 +91,25 @@ namespace UniCli.Server.Editor
             _cts.Cancel();
             _currentCommandCts?.Cancel();
 
-            // Directly dispose the PipeServer to ensure all ThreadPool tasks are stopped
-            // before domain reload proceeds. This is critical because the indirect disposal
-            // via the using block in RunServerLoopAsync may not complete in time.
-            PipeServer? pipeServer;
-            lock (_pipeServerLock)
+            // Directly dispose the transports to ensure all ThreadPool tasks are stopped before
+            // domain reload proceeds. This is critical because the indirect disposal via the
+            // finally block in RunTransportLoopAsync may not complete in time.
+            ICommandTransport?[] transports;
+            lock (_transportsLock)
             {
-                pipeServer = _currentPipeServer;
-                _currentPipeServer = null;
+                transports = (ICommandTransport?[])_currentTransports.Clone();
+                for (var i = 0; i < _currentTransports.Length; i++)
+                    _currentTransports[i] = null;
             }
-            pipeServer?.Dispose();
+            foreach (var transport in transports)
+                transport?.Dispose();
 
             try
             {
-                var tasks = _currentCommand is { IsCompleted: false }
-                    ? new[] { _serverLoop, _currentCommand }
-                    : new[] { _serverLoop };
-                Task.WaitAll(tasks, TimeSpan.FromMilliseconds(500));
+                var tasks = new List<Task>(_serverLoops);
+                if (_currentCommand is { IsCompleted: false })
+                    tasks.Add(_currentCommand);
+                Task.WaitAll(tasks.ToArray(), TimeSpan.FromMilliseconds(500));
             }
             catch (AggregateException)
             {
@@ -121,31 +150,30 @@ namespace UniCli.Server.Editor
             }
         }
 
-        private async Task RunServerLoopAsync(CancellationToken cancellationToken)
+        private async Task RunTransportLoopAsync(
+            ICommandTransportFactory factory, int index, CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    var pipeServer = new PipeServer(
-                        _pipeName,
-                        OnCommandReceived);
+                    var transport = factory.Create(OnCommandReceived);
 
-                    lock (_pipeServerLock)
-                        _currentPipeServer = pipeServer;
+                    lock (_transportsLock)
+                        _currentTransports[index] = transport;
 
                     try
                     {
-                        await pipeServer.WaitForShutdownAsync(cancellationToken);
+                        await transport.WaitForShutdownAsync(cancellationToken);
                     }
                     finally
                     {
-                        lock (_pipeServerLock)
+                        lock (_transportsLock)
                         {
-                            if (_currentPipeServer == pipeServer)
-                                _currentPipeServer = null;
+                            if (ReferenceEquals(_currentTransports[index], transport))
+                                _currentTransports[index] = null;
                         }
-                        pipeServer.Dispose();
+                        transport.Dispose();
                     }
                 }
                 catch (OperationCanceledException)
@@ -154,7 +182,7 @@ namespace UniCli.Server.Editor
                 }
                 catch (Exception ex)
                 {
-                    _errorLogger($"[UniCli] Server error: {ex.Message}");
+                    _errorLogger($"[UniCli] Transport '{factory.Name}' error: {ex.Message}");
                 }
 
                 try
