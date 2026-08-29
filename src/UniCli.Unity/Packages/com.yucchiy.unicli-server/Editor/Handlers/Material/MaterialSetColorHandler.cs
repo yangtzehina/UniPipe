@@ -7,6 +7,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Assets")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class MaterialSetColorHandler : CommandHandler<MaterialSetColorRequest, MaterialSetColorResponse>
     {
         public override string CommandName => "Material.SetColor";

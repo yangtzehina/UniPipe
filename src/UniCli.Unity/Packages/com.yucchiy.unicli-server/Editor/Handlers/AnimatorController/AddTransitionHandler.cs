@@ -7,6 +7,7 @@ using UnityEditor.Animations;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Animation")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class AnimatorControllerAddTransitionHandler
         : CommandHandler<AnimatorControllerAddTransitionRequest, AnimatorControllerAddTransitionResponse>
     {

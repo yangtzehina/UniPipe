@@ -30,6 +30,13 @@ namespace UniCli.Server.Editor
         public bool ReplacesOpenScenes { get; set; }
 
         /// <summary>
+        /// True when everything the command registers with Unity's Undo system should collapse
+        /// into a single, command-named entry — so taking the command back is one Ctrl+Z rather
+        /// than as many as the handler happened to register.
+        /// </summary>
+        public bool SingleUndoStep { get; set; }
+
+        /// <summary>
         /// True when the command observes its CancellationToken and returns promptly once it is
         /// signalled. Declared rather than assumed: cancellation is cooperative, so a client that
         /// disconnects can only expect a prompt release from commands that say they cooperate.

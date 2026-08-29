@@ -16,6 +16,7 @@ namespace UniCli.Protocol
         public bool replacesOpenScenes;
         public bool destructive;
         public bool cancellable;
+        public bool singleUndoStep;
 
         public CommandFieldInfo[] requestFields;
         public CommandFieldInfo[] responseFields;

@@ -6,6 +6,7 @@ using UnityEditor;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("GameObject")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class SetActiveHandler : CommandHandler<SetActiveRequest, SetActiveResponse>
     {
         public override string CommandName => "GameObject.SetActive";

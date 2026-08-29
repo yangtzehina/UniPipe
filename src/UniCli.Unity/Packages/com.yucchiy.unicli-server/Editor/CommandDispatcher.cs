@@ -104,14 +104,20 @@ namespace UniCli.Server.Editor
 
             // Preconditions are declared on the handler and enforced here, so a command cannot
             // opt out of them by forgetting to check. See CommandPreconditions.
-            var blocked = CommandPreconditions.Check(
-                CommandPreconditions.Resolve(handler.GetType()), request.command);
+            var precondition = CommandPreconditions.Resolve(handler.GetType());
+            var blocked = CommandPreconditions.Check(precondition, request.command);
             if (blocked != null)
             {
                 var blockedResponse = MakeResponse(false, blocked);
                 blockedResponse.versionWarning = versionCheck.Warning;
                 return blockedResponse;
             }
+
+            // Collapsed in every exit path below, including failures: a command that threw
+            // halfway still made the changes it made, and they should come back in one step.
+            var undoGroup = precondition.SingleUndoStep
+                ? UndoGroup.Begin(request.command)
+                : UndoGroup.None;
 
             try
             {
@@ -131,6 +137,10 @@ namespace UniCli.Server.Editor
                 var response = MakeResponse(false, $"Command failed: {ex.Message}");
                 response.versionWarning = versionCheck.Warning;
                 return response;
+            }
+            finally
+            {
+                undoGroup.Collapse();
             }
         }
 

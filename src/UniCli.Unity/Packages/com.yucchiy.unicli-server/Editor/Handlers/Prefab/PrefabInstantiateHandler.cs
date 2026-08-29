@@ -7,6 +7,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Assets")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class PrefabInstantiateHandler : CommandHandler<PrefabInstantiateRequest, PrefabInstantiateResponse>
     {
         public override string CommandName => "Prefab.Instantiate";

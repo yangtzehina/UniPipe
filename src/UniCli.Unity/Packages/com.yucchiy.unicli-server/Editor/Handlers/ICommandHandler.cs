@@ -49,6 +49,7 @@ namespace UniCli.Server.Editor.Handlers
                 replacesOpenScenes = precondition.ReplacesOpenScenes,
                 destructive = precondition.Destructive,
                 cancellable = precondition.Cancellable,
+                singleUndoStep = precondition.SingleUndoStep,
                 requestFields = requestMetadata.Fields,
                 responseFields = responseMetadata.Fields,
                 requestTypeDetails = requestMetadata.TypeDetails,

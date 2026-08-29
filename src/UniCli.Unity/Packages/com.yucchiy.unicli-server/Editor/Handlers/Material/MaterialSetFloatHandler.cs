@@ -7,6 +7,7 @@ using UnityEngine;
 namespace UniCli.Server.Editor.Handlers
 {
     [Module("Assets")]
+    [CommandPrecondition(SingleUndoStep = true)]
     public sealed class MaterialSetFloatHandler : CommandHandler<MaterialSetFloatRequest, MaterialSetFloatResponse>
     {
         public override string CommandName => "Material.SetFloat";

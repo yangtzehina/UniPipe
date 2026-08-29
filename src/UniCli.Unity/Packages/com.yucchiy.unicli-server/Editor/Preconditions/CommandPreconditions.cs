@@ -33,16 +33,20 @@ namespace UniCli.Server.Editor
         public readonly bool ReplacesOpenScenes;
         public readonly bool Destructive;
         public readonly bool Cancellable;
+        public readonly bool SingleUndoStep;
 
-        public CommandPrecondition(GuardCondition editorState, bool replacesOpenScenes, bool destructive, bool cancellable)
+        public CommandPrecondition(GuardCondition editorState, bool replacesOpenScenes, bool destructive,
+                                   bool cancellable, bool singleUndoStep)
         {
             EditorState = editorState;
             ReplacesOpenScenes = replacesOpenScenes;
             Destructive = destructive;
             Cancellable = cancellable;
+            SingleUndoStep = singleUndoStep;
         }
 
-        public bool IsEmpty => EditorState == 0 && !ReplacesOpenScenes && !Destructive && !Cancellable;
+        public bool IsEmpty => EditorState == 0 && !ReplacesOpenScenes && !Destructive
+                               && !Cancellable && !SingleUndoStep;
 
         /// <summary>Editor-state requirement as a stable string for command metadata; null when none.</summary>
         public string EditorStateName => EditorState == 0 ? null : EditorState.ToString();
@@ -83,7 +87,7 @@ namespace UniCli.Server.Editor
 
             var resolved = attribute == null
                 ? CommandPrecondition.None
-                : new CommandPrecondition(attribute.EditorState, attribute.ReplacesOpenScenes, attribute.Destructive, attribute.Cancellable);
+                : new CommandPrecondition(attribute.EditorState, attribute.ReplacesOpenScenes, attribute.Destructive, attribute.Cancellable, attribute.SingleUndoStep);
 
             lock (s_Cache)
             {
