@@ -1,0 +1,19 @@
+{
+    "name": "UiHotTuning",
+    "rootNamespace": "",
+    "references": [
+        "FairyGUI",
+        "Unity.Pipeline"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
