@@ -29,6 +29,7 @@ are not allowed to carry.
 | `unipipe/samples/UiHotTuning/` | The assembly layout that lets you hot-reload UI tuning code without coupling your UI library to the automation package. |
 | `unipipe/docs/porting-pipeline-to-2022.md` | Every obstacle to running `com.unity.pipeline` on Unity 2022.3, and how each was cleared. Useful on its own, independent of this fork. |
 | `unipipe/docs/hot-reload.md` | Applying an edited method body to the running editor without a domain reload — how, what it refuses, and why. |
+| `unipipe/docs/mcp.md` | Driving the editor from an AI client — the tool surface, the error semantics, and the local-only boundary. |
 | `unipipe/docs/plan.md` | Where this is going and why, including the compliance boundary the design is built around. |
 
 The bridge is deliberately marked transitional. It exists because hot reload is currently the one

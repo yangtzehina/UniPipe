@@ -132,8 +132,16 @@ decision is below.
    batch collapsing, stale-write detection, compile pre-validation, `dry_run` —
    plus the dirty-scene gate and cancellation from above.
 
-**Then:** native MCP (in-process C# SDK, layered tool surface, first-connection approval) and an
-event subscription channel, so clients stop polling for compile state and domain reloads.
+**Then:** *(MCP landed — see [`mcp.md`](mcp.md).)* native MCP and an event subscription channel, so
+clients stop polling for compile state and domain reloads.
+
+MCP arrived as a transport rather than a second implementation: a tool call becomes the same
+`CommandRequest` the pipe carries, so it inherits the command slot, the preconditions and the undo
+grouping for free — the payoff of having built the routing layer first. Eight tools are exposed
+rather than 136, with an escape hatch for the rest, because listing every command would spend an
+agent's context before it acts. The declared traits go into the tool descriptions, which is where
+they finally have a reader. Built without the official C# SDK, whose dependency tree the package
+does not otherwise need.
 
 **Then:** multi-instance discovery and routing, Profiler domain completion (frame debugger control,
 snapshot comparison), CI degradation paths.

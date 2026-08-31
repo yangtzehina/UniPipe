@@ -96,6 +96,15 @@ namespace UniCli.Server.Editor
                 UniCliEditorLog.Log("[UniCli] HTTP loopback transport enabled (UNICLI_HTTP=1).");
             }
 
+            // MCP is opt-in for the same reason HTTP is, plus one of its own: Unity's ToS names MCP
+            // servers among the automated callers needing authorization to reach Unity offerings.
+            // This one only ever drives the local editor, and stays off unless asked for.
+            if (Environment.GetEnvironmentVariable("UNICLI_MCP") == "1")
+            {
+                transports.Add(new McpTransportFactory(UniCliEditorLog.Log));
+                UniCliEditorLog.Log("[UniCli] MCP transport enabled (UNICLI_MCP=1), loopback only.");
+            }
+
             _server = new UniCliServer(
                 transports,
                 _dispatcher,
