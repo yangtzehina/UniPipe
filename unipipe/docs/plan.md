@@ -151,8 +151,9 @@ they finally have a reader. Built without the official C# SDK, whose dependency 
 does not otherwise need.
 
 **Then:** *(discovery and CI degradation landed — [`instances.md`](instances.md),
-[`ci.md`](ci.md).)* multi-instance discovery and routing, Profiler domain completion (frame
-debugger control, snapshot comparison), CI degradation paths.
+[`ci.md`](ci.md); snapshot comparison was already there; frame debugger control is blocked.)*
+multi-instance discovery and routing, Profiler domain completion (frame debugger control, snapshot
+comparison), CI degradation paths.
 
 Discovery removes an assumption the whole client rested on: that a caller already knows the project
 path, because the address is derived from it. Editors now advertise themselves in a per-user
@@ -173,6 +174,22 @@ refuses beforehand, because there is no error handling around a dead editor. The
 corrected the design: `Scene.Screenshot3D` works fine under plain `-batchmode`, so the requirement
 is a graphics device rather than an interactive editor, and gating both on batch mode — the obvious
 first guess — would have removed a capability CI actually wants.
+
+Of the Profiler track, snapshot comparison turned out to be done already and simply unrecorded here.
+Verified rather than assumed: allocating exactly 400 arrays of 64 KB between two captures, the diff
+reported `countDelta: 400` and `sizeDelta: 26,227,200` — the 26,214,400 bytes allocated plus 32
+bytes of array header each. `MemorySnapshot.Diff`, `Analyze` and `AllOfMemory` all take a baseline.
+
+Frame debugger control is blocked, and the blocker is worth recording so it is not rediscovered.
+The data lives behind `UnityEditorInternal.FrameDebuggerInternal.FrameDebuggerUtility` — a namespace
+that already moved once between Unity versions — and the public `UnityEngine.FrameDebugger` exposes
+only a read-only `enabled`. Capture could not be driven from outside the editor's own window:
+`SetEnabled`, raising `limit`, forcing repaints, opening a Game View, calling the window's own
+`OpenWindowAndToggleEnabled`, and running with the editor foregrounded all left `count` at zero.
+The capture appears to be driven by `FrameDebuggerWindow`'s multi-frame enabling sequence in lockstep
+with a rendering Game View. Reproducing that means reverse-engineering internal editor code for a
+command that, by the environment rules above, could only ever run on an interactive editor — the
+opposite of where the automation value is. Left unbuilt rather than shipped unverified.
 
 **Deferred:** the player/device tiers — read-only observation, then an embedded agent for real
 devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a
