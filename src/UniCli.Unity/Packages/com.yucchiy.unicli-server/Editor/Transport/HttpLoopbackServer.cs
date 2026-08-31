@@ -121,9 +121,20 @@ namespace UniCli.Server.Editor
                     return;
                 }
 
+                // GET /events is the push side of the event stream: a client holds this open
+                // instead of polling Events.Poll. It reads from the stream directly rather than
+                // going through the command slot, so a subscriber cannot starve command traffic.
+                if (string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
+                    && context.Request.Url != null
+                    && context.Request.Url.AbsolutePath.TrimEnd('/').EndsWith("/events", StringComparison.Ordinal))
+                {
+                    await StreamEventsAsync(context);
+                    return;
+                }
+
                 if (!string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
                 {
-                    Respond(context, 405, ErrorResponse("POST a CommandRequest as the JSON body."));
+                    Respond(context, 405, ErrorResponse("POST a CommandRequest as the JSON body, or GET /events."));
                     return;
                 }
 
@@ -161,6 +172,83 @@ namespace UniCli.Server.Editor
                 try { Respond(context, 500, ErrorResponse("Internal error handling the request.")); }
                 catch { /* client already gone */ }
             }
+        }
+
+        /// <summary>
+        /// Server-sent events. Anything already buffered after the client's cursor is delivered
+        /// first, so a reconnecting client does not miss what happened while it was away, and new
+        /// events follow as they are published.
+        /// </summary>
+        private async Task StreamEventsAsync(HttpListenerContext context)
+        {
+            long.TryParse(context.Request.QueryString["since"], out var since);
+
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = "text/event-stream";
+            context.Response.Headers.Add("Cache-Control", "no-cache");
+            context.Response.SendChunked = true;
+
+            var pending = new System.Collections.Concurrent.ConcurrentQueue<EditorEvent>();
+            var signal = new SemaphoreSlim(0);
+
+            void OnPublished(EditorEvent published)
+            {
+                pending.Enqueue(published);
+                try { signal.Release(); } catch (ObjectDisposedException) { }
+            }
+
+            // Subscribe before draining the backlog: an event published in between is queued
+            // rather than lost, and the sequence number lets the client ignore a duplicate.
+            EditorEventStream.Published += OnPublished;
+
+            try
+            {
+                foreach (var buffered in EditorEventStream.Since(since, null, 0, out _, out _))
+                    await WriteEventAsync(context, buffered);
+
+                while (true)
+                {
+                    // The wait doubles as a keep-alive tick: a comment frame both keeps
+                    // intermediaries from closing an idle stream and reveals a client that left.
+                    if (await signal.WaitAsync(TimeSpan.FromSeconds(15)))
+                    {
+                        while (pending.TryDequeue(out var published))
+                            await WriteEventAsync(context, published);
+                    }
+                    else
+                    {
+                        await WriteRawAsync(context, ": keep-alive\n\n");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // The client went away, or the listener stopped. Either way this stream is over.
+            }
+            finally
+            {
+                EditorEventStream.Published -= OnPublished;
+                signal.Dispose();
+                try { context.Response.OutputStream.Close(); } catch { }
+            }
+        }
+
+        private static Task WriteEventAsync(HttpListenerContext context, EditorEvent published)
+        {
+            var payload = "{\"seq\":" + published.seq +
+                          ",\"kind\":" + McpJson.Quote(published.kind) +
+                          ",\"timestamp\":" + published.timestamp +
+                          ",\"message\":" + McpJson.Quote(published.message) +
+                          ",\"data\":" + McpJson.Quote(published.data ?? "") + "}";
+
+            return WriteRawAsync(context, $"id: {published.seq}\nevent: {published.kind}\ndata: {payload}\n\n");
+        }
+
+        private static async Task WriteRawAsync(HttpListenerContext context, string text)
+        {
+            var bytes = Encoding.UTF8.GetBytes(text);
+            await context.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+            await context.Response.OutputStream.FlushAsync();
         }
 
         private static void Respond(HttpListenerContext context, int status, string json)
