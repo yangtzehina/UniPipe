@@ -33,6 +33,7 @@ are not allowed to carry.
 | `unipipe/docs/events.md` | Catching up on what the editor did, instead of polling for it — cursors, kinds, and the push stream. |
 | `unipipe/docs/instances.md` | Finding and addressing the editors running on a machine — discovery, the three states, and why ambiguity is refused. |
 | `unipipe/docs/ci.md` | What breaks headless, measured — a crash and two silent blank frames — and the gate that now refuses those commands. |
+| `unipipe/docs/render-stats.md` | `Render.GetStats` — batches, SetPass calls, and which batching path handled them; where the numbers are true. |
 | `unipipe/docs/plan.md` | Where this is going and why, including the compliance boundary the design is built around. |
 
 The bridge is deliberately marked transitional. It exists because hot reload is currently the one

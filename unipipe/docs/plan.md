@@ -150,8 +150,9 @@ agent's context before it acts. The declared traits go into the tool description
 they finally have a reader. Built without the official C# SDK, whose dependency tree the package
 does not otherwise need.
 
-**Then:** *(discovery and CI degradation landed — [`instances.md`](instances.md),
-[`ci.md`](ci.md); snapshot comparison was already there; frame debugger control is blocked.)*
+**Then:** *(discovery, CI degradation and render statistics landed — [`instances.md`](instances.md),
+[`ci.md`](ci.md), [`render-stats.md`](render-stats.md); snapshot comparison was already there;
+frame debugger control is blocked.)*
 multi-instance discovery and routing, Profiler domain completion (frame debugger control, snapshot
 comparison), CI degradation paths.
 
@@ -190,6 +191,22 @@ The capture appears to be driven by `FrameDebuggerWindow`'s multi-frame enabling
 with a rendering Game View. Reproducing that means reverse-engineering internal editor code for a
 command that, by the environment rules above, could only ever run on an interactive editor — the
 opposite of where the automation value is. Left unbuilt rather than shipped unverified.
+
+What replaced it answers the same question through public API. `Render.GetStats` reads
+`UnityEditor.UnityStats` — the Game View's Statistics overlay — and reports the batching breakdown,
+which is what "draw calls went up" actually needs: 20 cubes with 20 materials measured 71 batches
+and no instancing; the same cubes on one instanced material measured 7, attributed to 4 instanced
+batches covering 68 draw calls. The numbers persist after the render that produced them, so the
+command repaints, lets the editor render, and reports the resolution they were measured at.
+
+It does not, however, deliver the CI property it was chosen for, and the reason is worth keeping.
+Under `-batchmode` every counter reads zero at resolution `0x0` — and so do Unity's own profiler
+counters, because batch mode runs no per-frame display render at all. The same run had
+`Time.renderedFrameCount` climbing into the millions while an explicit `camera.Render()` produced a
+real image: the GPU works, nothing drives a per-frame render. There are no render statistics to
+take rather than an API failing to report them. The environment gate turns that into a refusal. The
+environment that does render per frame is a built development player over PlayerConnection — the
+deferred player tier.
 
 **Deferred:** the player/device tiers — read-only observation, then an embedded agent for real
 devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a

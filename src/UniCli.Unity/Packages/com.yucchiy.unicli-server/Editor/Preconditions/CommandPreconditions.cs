@@ -148,8 +148,11 @@ namespace UniCli.Server.Editor
 
             if ((precondition.Environment & EnvironmentRequirement.InteractiveWindows) != 0
                 && environment.IsBatchMode)
-                return $"Cannot execute '{commandName}': batch mode has no interactive editor " +
-                       "windows, so this returns an empty frame while reporting success." +
+                // Accurate for both shapes this covers: a capture comes back empty, and a
+                // statistics read comes back all zeros. Batch mode draws no Game View frames, so
+                // either way the command would report success with nothing behind it.
+                return $"Cannot execute '{commandName}': batch mode draws no Game View frames, so " +
+                       "this would report success with nothing behind it." +
                        Alternative(precondition);
 
             return null;

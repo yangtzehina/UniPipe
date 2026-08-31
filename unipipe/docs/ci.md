@@ -35,8 +35,8 @@ public sealed class ScreenshotCaptureHandler : ...
 
 ```
 $ unicli exec Screenshot.Capture      # under -batchmode
-Cannot execute 'Screenshot.Capture': batch mode has no interactive editor windows, so this
-returns an empty frame while reporting success. Scene.Screenshot3D works here.
+Cannot execute 'Screenshot.Capture': batch mode draws no Game View frames, so this would
+report success with nothing behind it. Scene.Screenshot3D works here.
 ```
 
 Exit code 1. Before the handler runs, because one of these failures is not recoverable afterwards —
@@ -77,8 +77,8 @@ send a CI job into a retry loop against a wall.
 
 `Commands.List` reports `requiresEnvironment`, so a client can skip what cannot work instead of
 collecting blank results. MCP tool descriptions carry it too — a model calling
-`unity_screenshot` is told it "needs an interactive editor; returns an empty frame in batch mode"
-before it calls rather than after.
+`unity_screenshot` is told it "needs an interactive editor; batch mode draws no frames for it to
+read" before it calls rather than after.
 
 ## Discovery in batch mode
 
@@ -96,5 +96,7 @@ measured requirement rather than on "looks like it touches the GUI". Under `-bat
 graphics device, `Screenshot.Capture` was refused naming `Scene.Screenshot3D`, and that command
 then produced a real 702-colour render.
 
-The scene-screenshot and game-view captures are the commands measured here. Recorder was not: the
-package was not installed in the probe project.
+The scene-screenshot and game-view captures are the commands measured here, and later
+`Render.GetStats` (see [`render-stats.md`](render-stats.md)), refused with exit code 1 against a
+real `-batchmode` editor. Recorder was not measured: the package was not installed in the probe
+project.

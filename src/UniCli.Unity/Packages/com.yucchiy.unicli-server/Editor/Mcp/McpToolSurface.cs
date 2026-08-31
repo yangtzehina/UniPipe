@@ -134,7 +134,7 @@ namespace UniCli.Server.Editor
                 // Worth telling a model up front: in batch mode these do not fail, they return
                 // blank frames, so a caller that does not know cannot tell from the result.
                 if (info.requiresEnvironment.Contains("InteractiveWindows"))
-                    notes.Add("needs an interactive editor; returns an empty frame in batch mode");
+                    notes.Add("needs an interactive editor; batch mode draws no frames for it to read");
                 else if (info.requiresEnvironment.Contains("Graphics"))
                     notes.Add("needs a graphics device; unavailable under -nographics");
             }
