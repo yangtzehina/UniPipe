@@ -13,14 +13,16 @@ public partial class Commands
     /// </summary>
     public async Task<int> Status(bool json = false)
     {
-        var explicitPath = Environment.GetEnvironmentVariable("UNICLI_PROJECT");
-        var projectRoot = explicitPath ?? ProjectIdentifier.FindUnityProjectRoot();
+        var resolved = await ProjectResolver.ResolveAsync(
+            Environment.GetEnvironmentVariable("UNICLI_PROJECT"));
 
-        if (projectRoot == null)
+        if (resolved.IsError)
         {
-            var result = BuildStatusResult(false, null, null, "Unity project not found", 0, default);
+            var result = BuildStatusResult(false, null, null, resolved.ErrorValue, 0, default);
             return OutputWriter.Write(result, json);
         }
+
+        var projectRoot = resolved.SuccessValue;
 
         var pipeName = ProjectIdentifier.GetPipeName(projectRoot);
 

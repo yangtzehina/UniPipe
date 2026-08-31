@@ -32,7 +32,8 @@ public partial class Commands
                 if (listResponse?.commands == null || listResponse.commands.Length == 0)
                     return CliResult.Ok("No commands available.", "[]", "No commands available.");
 
-                var projectRoot = Environment.GetEnvironmentVariable("UNICLI_PROJECT")
+                var projectRoot = ProjectResolver.Resolved
+                    ?? Environment.GetEnvironmentVariable("UNICLI_PROJECT")
                     ?? ProjectIdentifier.FindUnityProjectRoot();
                 if (projectRoot != null)
                     CompletionCache.Save(projectRoot, listResponse.commands);

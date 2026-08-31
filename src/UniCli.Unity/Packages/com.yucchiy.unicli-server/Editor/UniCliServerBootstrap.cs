@@ -48,6 +48,7 @@ namespace UniCli.Server.Editor
         static UniCliServerBootstrap()
         {
             EnsurePidFile();
+            InstanceRegistration.Publish();
 
             EditorApplication.update -= Initialize;
             EditorApplication.update += Initialize;
@@ -217,6 +218,7 @@ namespace UniCli.Server.Editor
         {
             StopServer();
             DeletePidFile();
+            InstanceRegistration.Withdraw();
         }
 
         private static void OnEditorUpdate()

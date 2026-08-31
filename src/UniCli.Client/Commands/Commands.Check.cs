@@ -15,14 +15,16 @@ public partial class Commands
     [Command("check")]
     public async Task<int> Check(bool json = false)
     {
-        var explicitPath = Environment.GetEnvironmentVariable("UNICLI_PROJECT");
-        var projectRoot = explicitPath ?? ProjectIdentifier.FindUnityProjectRoot();
+        var resolved = await ProjectResolver.ResolveAsync(
+            Environment.GetEnvironmentVariable("UNICLI_PROJECT"));
 
-        if (projectRoot == null)
+        if (resolved.IsError)
         {
-            var result = CliResult.Error("Unity project not found.");
+            var result = CliResult.Error(resolved.ErrorValue);
             return OutputWriter.Write(result, json);
         }
+
+        var projectRoot = resolved.SuccessValue;
 
         var manifestPath = ManifestEditor.GetManifestPath(projectRoot);
         var source = ManifestEditor.FindPackageSource(manifestPath);

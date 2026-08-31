@@ -12,6 +12,7 @@ namespace UniCli.Client;
 [JsonSerializable(typeof(CommandResponse))]
 [JsonSerializable(typeof(CommandListResponse))]
 [JsonSerializable(typeof(CommandInfo[]))]
+[JsonSerializable(typeof(InstanceRecord))]
 [JsonSerializable(typeof(JsonElement))]
 internal partial class ProtocolJsonContext : JsonSerializerContext
 {

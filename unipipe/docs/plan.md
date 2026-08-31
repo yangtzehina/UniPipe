@@ -150,8 +150,18 @@ agent's context before it acts. The declared traits go into the tool description
 they finally have a reader. Built without the official C# SDK, whose dependency tree the package
 does not otherwise need.
 
-**Then:** multi-instance discovery and routing, Profiler domain completion (frame debugger control,
-snapshot comparison), CI degradation paths.
+**Then:** *(discovery landed — [`instances.md`](instances.md).)* multi-instance discovery and
+routing, Profiler domain completion (frame debugger control, snapshot comparison), CI degradation
+paths.
+
+Discovery removes an assumption the whole client rested on: that a caller already knows the project
+path, because the address is derived from it. Editors now advertise themselves in a per-user
+registry, so `unicli` works from outside any project and an editor can be named rather than
+pathed. Two rules carry the weight. Records are hints — a crashed editor leaves its file behind, so
+liveness comes from the process and the pipe, never the file. And ambiguity is refused rather than
+guessed: choosing one of two editors named `MyGame` would send writes into a project nobody named,
+which is the dirty-scene failure again in a different costume. Probing is a connect and nothing
+more, because sending a command would queue behind whatever that editor is already doing.
 
 **Deferred:** the player/device tiers — read-only observation, then an embedded agent for real
 devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a

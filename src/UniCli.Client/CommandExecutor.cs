@@ -17,12 +17,13 @@ internal static class CommandExecutor
         string command, string data, int timeoutMs = 0, string format = "",
         int maxRetries = DefaultMaxRetries, bool focusEditor = false)
     {
-        var explicitPath = Environment.GetEnvironmentVariable("UNICLI_PROJECT");
-        var unityProjectRoot = explicitPath ?? ProjectIdentifier.FindUnityProjectRoot();
+        var resolved = await ProjectResolver.ResolveAsync(
+            Environment.GetEnvironmentVariable("UNICLI_PROJECT"));
 
-        if (unityProjectRoot == null)
-            return Result<CommandResponse, string>.Error(
-                "Unity project not found.\n  Run this command from within a Unity project directory,\n  or set UNICLI_PROJECT environment variable to specify the project path.");
+        if (resolved.IsError)
+            return Result<CommandResponse, string>.Error(resolved.ErrorValue);
+
+        var unityProjectRoot = resolved.SuccessValue;
 
         var pipeName = ProjectIdentifier.GetPipeName(unityProjectRoot);
 

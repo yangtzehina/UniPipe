@@ -31,6 +31,7 @@ are not allowed to carry.
 | `unipipe/docs/hot-reload.md` | Applying an edited method body to the running editor without a domain reload — how, what it refuses, and why. |
 | `unipipe/docs/mcp.md` | Driving the editor from an AI client — the tool surface, the error semantics, and the local-only boundary. |
 | `unipipe/docs/events.md` | Catching up on what the editor did, instead of polling for it — cursors, kinds, and the push stream. |
+| `unipipe/docs/instances.md` | Finding and addressing the editors running on a machine — discovery, the three states, and why ambiguity is refused. |
 | `unipipe/docs/plan.md` | Where this is going and why, including the compliance boundary the design is built around. |
 
 The bridge is deliberately marked transitional. It exists because hot reload is currently the one
