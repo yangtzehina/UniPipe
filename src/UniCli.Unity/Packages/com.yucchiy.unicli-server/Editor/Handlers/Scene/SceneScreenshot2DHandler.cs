@@ -6,7 +6,11 @@ using UnityEngine;
 
 namespace UniCli.Server.Editor.Handlers
 {
+    // Works under plain -batchmode, which is why this asks for a graphics device rather than an
+    // interactive editor: gating it on batch mode would disable a capability that demonstrably
+    // works there. Under -nographics it returns success and an unrendered buffer.
     [Module("Scene")]
+    [CommandPrecondition(Environment = EnvironmentRequirement.Graphics)]
     public sealed class SceneScreenshot2DHandler : CommandHandler<SceneScreenshot2DRequest, SceneScreenshotResponse>
     {
         public override string CommandName => "Scene.Screenshot2D";

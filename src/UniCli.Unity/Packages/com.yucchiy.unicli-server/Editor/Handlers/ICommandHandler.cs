@@ -50,6 +50,7 @@ namespace UniCli.Server.Editor.Handlers
                 destructive = precondition.Destructive,
                 cancellable = precondition.Cancellable,
                 singleUndoStep = precondition.SingleUndoStep,
+                requiresEnvironment = precondition.EnvironmentName,
                 requestFields = requestMetadata.Fields,
                 responseFields = responseMetadata.Fields,
                 requestTypeDetails = requestMetadata.TypeDetails,

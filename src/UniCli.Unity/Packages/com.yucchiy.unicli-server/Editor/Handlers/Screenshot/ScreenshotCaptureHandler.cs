@@ -15,6 +15,13 @@ namespace UniCli.Server.Editor.Handlers
         Play,
     }
 
+    // Measured on 2022.3.62f3: under -batchmode -nographics this crashes the editor natively in
+    // MonoGUIView::IsHDRActive(); under plain -batchmode it returns success and a fully
+    // transparent frame. Scene.Screenshot3D renders a camera directly and produces a real image in
+    // batch mode, so the refusal names it.
+    [CommandPrecondition(
+        Environment = EnvironmentRequirement.Graphics | EnvironmentRequirement.InteractiveWindows,
+        AlternativeCommand = "Scene.Screenshot3D")]
     public sealed class ScreenshotCaptureHandler : CommandHandler<ScreenshotCaptureRequest, ScreenshotCaptureResponse>
     {
         public override string CommandName => "Screenshot.Capture";

@@ -34,19 +34,28 @@ namespace UniCli.Server.Editor
         public readonly bool Destructive;
         public readonly bool Cancellable;
         public readonly bool SingleUndoStep;
+        public readonly EnvironmentRequirement Environment;
+        public readonly string AlternativeCommand;
 
         public CommandPrecondition(GuardCondition editorState, bool replacesOpenScenes, bool destructive,
-                                   bool cancellable, bool singleUndoStep)
+                                   bool cancellable, bool singleUndoStep,
+                                   EnvironmentRequirement environment = EnvironmentRequirement.None,
+                                   string alternativeCommand = null)
         {
             EditorState = editorState;
             ReplacesOpenScenes = replacesOpenScenes;
             Destructive = destructive;
             Cancellable = cancellable;
             SingleUndoStep = singleUndoStep;
+            Environment = environment;
+            AlternativeCommand = alternativeCommand;
         }
 
         public bool IsEmpty => EditorState == 0 && !ReplacesOpenScenes && !Destructive
-                               && !Cancellable && !SingleUndoStep;
+                               && !Cancellable && !SingleUndoStep && Environment == 0;
+
+        /// <summary>Environment requirement as a stable string for command metadata; null when none.</summary>
+        public string EnvironmentName => Environment == 0 ? null : Environment.ToString();
 
         /// <summary>Editor-state requirement as a stable string for command metadata; null when none.</summary>
         public string EditorStateName => EditorState == 0 ? null : EditorState.ToString();
@@ -87,7 +96,7 @@ namespace UniCli.Server.Editor
 
             var resolved = attribute == null
                 ? CommandPrecondition.None
-                : new CommandPrecondition(attribute.EditorState, attribute.ReplacesOpenScenes, attribute.Destructive, attribute.Cancellable, attribute.SingleUndoStep);
+                : new CommandPrecondition(attribute.EditorState, attribute.ReplacesOpenScenes, attribute.Destructive, attribute.Cancellable, attribute.SingleUndoStep, attribute.Environment, attribute.AlternativeCommand);
 
             lock (s_Cache)
             {
@@ -101,10 +110,20 @@ namespace UniCli.Server.Editor
         /// Returns null when the command may proceed, or the reason it may not. The message is
         /// what the caller sees, so it names the command and says what to do about it.
         /// </summary>
-        public static string Check(CommandPrecondition precondition, string commandName, IEditorStateProbe probe)
+        public static string Check(CommandPrecondition precondition, string commandName,
+                                   IEditorStateProbe probe, IEnvironmentProbe environment)
         {
             if (probe == null)
                 throw new ArgumentNullException(nameof(probe));
+            if (environment == null)
+                throw new ArgumentNullException(nameof(environment));
+
+            // Environment first. Editor state is recoverable by waiting or exiting Play Mode; a
+            // missing graphics device is not going to appear, and one of these commands crashes
+            // the editor rather than failing, so this check has to come before anything runs.
+            var unmet = CheckEnvironment(precondition, commandName, environment);
+            if (unmet != null)
+                return unmet;
 
             if ((precondition.EditorState & GuardCondition.NotPlaying) != 0 && probe.IsPlaying)
                 return $"Cannot execute '{commandName}' while in Play Mode. Exit Play Mode first (PlayMode.Exit).";
@@ -115,9 +134,39 @@ namespace UniCli.Server.Editor
             return null;
         }
 
-        /// <summary>Convenience overload using the live editor state.</summary>
+        private static string CheckEnvironment(CommandPrecondition precondition, string commandName,
+                                               IEnvironmentProbe environment)
+        {
+            if ((precondition.Environment & EnvironmentRequirement.Graphics) != 0
+                && !environment.HasGraphicsDevice)
+                // No alternative is offered here on purpose. The alternative a rendering command
+                // names is another rendering command, and without a graphics device that one is
+                // refused too — pointing at it would be a suggestion that cannot work.
+                return $"Cannot execute '{commandName}': this editor has no graphics device " +
+                       "(started with -nographics). Rendering commands crash or return unrendered " +
+                       "buffers here rather than failing.";
+
+            if ((precondition.Environment & EnvironmentRequirement.InteractiveWindows) != 0
+                && environment.IsBatchMode)
+                return $"Cannot execute '{commandName}': batch mode has no interactive editor " +
+                       "windows, so this returns an empty frame while reporting success." +
+                       Alternative(precondition);
+
+            return null;
+        }
+
+        private static string Alternative(CommandPrecondition precondition)
+            => string.IsNullOrEmpty(precondition.AlternativeCommand)
+                ? ""
+                : $" {precondition.AlternativeCommand} works here.";
+
+        /// <summary>Convenience overload using the live editor state and environment.</summary>
         public static string Check(CommandPrecondition precondition, string commandName)
-            => Check(precondition, commandName, EditorApplicationStateProbe.Instance);
+            => Check(precondition, commandName, EditorApplicationStateProbe.Instance, UnityEnvironmentProbe.Instance);
+
+        /// <summary>Overload for tests that only vary editor state.</summary>
+        public static string Check(CommandPrecondition precondition, string commandName, IEditorStateProbe probe)
+            => Check(precondition, commandName, probe, UnityEnvironmentProbe.Instance);
 
         internal static void ClearCacheForTesting()
         {

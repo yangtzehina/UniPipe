@@ -48,5 +48,20 @@ namespace UniCli.Server.Editor
         /// trivially undoable. Advisory metadata for clients today.
         /// </summary>
         public bool Destructive { get; set; }
+
+        /// <summary>
+        /// What the command needs from the environment — a graphics device, real editor windows.
+        /// Checked before the handler runs, because the failures this prevents are not recoverable
+        /// afterwards: one of them is a native crash that takes the editor with it, and the rest
+        /// report success while returning blank frames.
+        /// </summary>
+        public EnvironmentRequirement Environment { get; set; }
+
+        /// <summary>
+        /// A command that does the same job in an environment this one cannot run in, named in the
+        /// refusal. A refusal that says what to do instead is the difference between a gate and a
+        /// dead end.
+        /// </summary>
+        public string AlternativeCommand { get; set; }
     }
 }

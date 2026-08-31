@@ -6,7 +6,10 @@ using UnityEngine;
 
 namespace UniCli.Server.Editor.Handlers
 {
+    // Verified to render correctly under plain -batchmode; under -nographics it reported success
+    // and returned a buffer whose every pixel, alpha included, was 0xCD.
     [Module("Scene")]
+    [CommandPrecondition(Environment = EnvironmentRequirement.Graphics)]
     public sealed class SceneScreenshot3DHandler : CommandHandler<SceneScreenshot3DRequest, SceneScreenshotResponse>
     {
         public override string CommandName => "Scene.Screenshot3D";

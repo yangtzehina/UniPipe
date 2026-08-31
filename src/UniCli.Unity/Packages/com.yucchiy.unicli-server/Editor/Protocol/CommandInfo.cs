@@ -18,6 +18,13 @@ namespace UniCli.Protocol
         public bool cancellable;
         public bool singleUndoStep;
 
+        /// <summary>
+        /// What the command needs from the environment: "Graphics", "InteractiveWindows", or both.
+        /// Null when it needs nothing in particular. A client can use this to skip commands that
+        /// cannot work on the machine it is driving instead of collecting blank results.
+        /// </summary>
+        public string requiresEnvironment;
+
         public CommandFieldInfo[] requestFields;
         public CommandFieldInfo[] responseFields;
         public CommandTypeDetail[] requestTypeDetails;

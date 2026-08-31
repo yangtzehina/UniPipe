@@ -129,6 +129,16 @@ namespace UniCli.Server.Editor
                         : "requires the editor to be out of Play Mode and not compiling");
             }
 
+            if (!string.IsNullOrEmpty(info.requiresEnvironment))
+            {
+                // Worth telling a model up front: in batch mode these do not fail, they return
+                // blank frames, so a caller that does not know cannot tell from the result.
+                if (info.requiresEnvironment.Contains("InteractiveWindows"))
+                    notes.Add("needs an interactive editor; returns an empty frame in batch mode");
+                else if (info.requiresEnvironment.Contains("Graphics"))
+                    notes.Add("needs a graphics device; unavailable under -nographics");
+            }
+
             if (info.replacesOpenScenes)
                 notes.Add("can replace the open scenes and discard unsaved changes");
             if (info.destructive)

@@ -150,9 +150,9 @@ agent's context before it acts. The declared traits go into the tool description
 they finally have a reader. Built without the official C# SDK, whose dependency tree the package
 does not otherwise need.
 
-**Then:** *(discovery landed — [`instances.md`](instances.md).)* multi-instance discovery and
-routing, Profiler domain completion (frame debugger control, snapshot comparison), CI degradation
-paths.
+**Then:** *(discovery and CI degradation landed — [`instances.md`](instances.md),
+[`ci.md`](ci.md).)* multi-instance discovery and routing, Profiler domain completion (frame
+debugger control, snapshot comparison), CI degradation paths.
 
 Discovery removes an assumption the whole client rested on: that a caller already knows the project
 path, because the address is derived from it. Editors now advertise themselves in a per-user
@@ -162,6 +162,17 @@ liveness comes from the process and the pipe, never the file. And ambiguity is r
 guessed: choosing one of two editors named `MyGame` would send writes into a project nobody named,
 which is the dirty-scene failure again in a different costume. Probing is a connect and nothing
 more, because sending a command would queue behind whatever that editor is already doing.
+
+The CI work turned out to be about the "read commands can lie" contract rather than about error
+messages. Measured on one project across three environments: `Screenshot.Capture` under
+`-batchmode -nographics` took the editor down with a native crash; under plain `-batchmode` it
+returned success and a fully transparent frame; `Scene.Screenshot3D` under `-nographics` returned
+success and a buffer whose every byte, alpha included, was `0xCD`. Three failures, one of which
+looked like one. Commands now declare what they need from the environment and the dispatcher
+refuses beforehand, because there is no error handling around a dead editor. The measurement also
+corrected the design: `Scene.Screenshot3D` works fine under plain `-batchmode`, so the requirement
+is a graphics device rather than an interactive editor, and gating both on batch mode — the obvious
+first guess — would have removed a capability CI actually wants.
 
 **Deferred:** the player/device tiers — read-only observation, then an embedded agent for real
 devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a
