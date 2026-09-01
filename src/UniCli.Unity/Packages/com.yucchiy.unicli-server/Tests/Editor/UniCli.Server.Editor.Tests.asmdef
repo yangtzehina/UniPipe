@@ -2,7 +2,8 @@
     "name": "UniCli.Server.Editor.Tests",
     "rootNamespace": "UniCli.Server.Editor.Tests",
     "references": [
-        "UniCli.Server.Editor"
+        "UniCli.Server.Editor",
+        "UniCli.Remote"
     ],
     "includePlatforms": [
         "Editor"

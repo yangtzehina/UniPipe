@@ -208,7 +208,27 @@ take rather than an API failing to report them. The environment gate turns that 
 environment that does render per frame is a built development player over PlayerConnection — the
 deferred player tier.
 
-**Deferred:** the player/device tiers — read-only observation, then an embedded agent for real
+That tier's first step is now built, which is what closes the rendering-regression loop.
+`Debug.RenderStats` reads Unity's profiler counters inside a running player and reports the same
+batching breakdown the editor command does, at the player's resolution. Measured against a real
+build whose scene alternated every three seconds: 20 cubes on 20 materials came to 23 batches with
+no instancing; the same cubes on one shared instanced material came to 4, from a single instanced
+batch covering 20 draw calls — at a constant 1924 triangles, since the geometry never changed and
+only the batching did.
+
+The gate this tier was held behind was a measured stripping matrix, because the command registry
+finds commands by reflection. Mono at stripping High with engine-code stripping kept all eight
+commands and every counter, so the `[Preserve]`/`[RequireDerived]` machinery holds. IL2CPP could not
+be measured — the module is not installed here — and is not assumed from that.
+
+Two things worth knowing before debugging a quiet player. The remote assembly needs `UNICLI_REMOTE`
+in the build's define symbols as well as `DEVELOPMENT_BUILD`; without it the receiver is not in the
+build and `Remote.List` simply times out. And multicast discovery failed on this machine — a
+`198.18.0.1` interface alongside the LAN address, the signature of a tunnel — where
+`Connection.Connect` with an explicit IP worked first time.
+
+**Deferred, except the first step, which landed** — see [`player-tier.md`](player-tier.md): the
+player/device tiers — read-only observation, then an embedded agent for real
 devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a
 measured matrix of stripping levels against reflection capability. Note that avoiding GPL by
 copying designs rather than code addresses copyright only — distributing device-driving capability
