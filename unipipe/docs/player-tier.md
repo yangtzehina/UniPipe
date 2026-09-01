@@ -3,7 +3,8 @@
 Reading a running build, over Unity's own PlayerConnection.
 
 ```bash
-unicli exec Connection.Connect '{"ip":"192.168.3.8"}'
+unicli exec Connection.List                          # find the player's id
+unicli exec Connection.Connect '{"id":267499476}'
 unicli exec Remote.List
 unicli exec Remote.Invoke '{"command":"Debug.RenderStats"}'
 ```
@@ -40,12 +41,18 @@ which is exactly what managed stripping removes. The plan gated this tier on mea
 | build | result |
 |---|---|
 | Mono, stripping Disabled | 8 commands, all counters available |
-| Mono, stripping **High** + strip engine code | **8 commands, all counters available** |
-| IL2CPP | **not measured** — the IL2CPP module is not installed on this machine |
+| Mono, stripping **High** + strip engine code | 8 commands, all counters available |
+| IL2CPP, stripping Minimal | 8 commands, all counters available |
+| IL2CPP, stripping **High** + strip engine code | **8 commands, all counters available** |
 
-The `[Preserve]` and `[RequireDerived]` attributes on the command base classes, plus the package's
-linker processor, survive High stripping intact. IL2CPP remains unmeasured and should not be
-assumed from this.
+The `[Preserve]` and `[RequireDerived]` attributes on the command base classes, plus the link.xml the
+package's linker processor emits, survive High stripping under both backends. Reflection-based
+discovery was never the problem.
+
+Getting to that answer took one wrong turn worth recording. The first IL2CPP builds answered
+nothing, which looked exactly like stripping having eaten the registry. It had not: a probe inside
+the build found the receiver present and the registry discovering all eight commands, and the
+`global-metadata` carried the type names. The failure was on the editor side, below.
 
 ## What is in the build, and what is not
 
@@ -71,14 +78,38 @@ or writes a preference. Verified working against the player: `Debug.SystemInfo` 
 The test scene alternates its own materials on a timer for exactly this reason — proving the
 batching breakdown responds to a real change needed no way to poke the player.
 
+## Batch mode on the editor side
+
+The editor's half of the player connection is not initialized by anything on its own. It comes up as
+a side effect of the profiler's attach control — a piece of UI that does not exist in batch mode. So
+a headless editor listed players, connected to them, and then answered every remote command with
+"no runtime player connected", because `EditorConnection.ConnectedPlayers` was empty however many
+players were running.
+
+Measured both ways with the *same* player build: eight commands under an interactive editor, none
+under `-batchmode`, with the scripting backend making no difference either way.
+
+That is the CI topology exactly — a build under test driven by an editor with no display — so the
+package now calls `EditorConnection.instance.Initialize()` itself, from connecting, from resolving
+a player, and from registering the message handler, since any of the three can come first.
+
+With that in place the full headless pipeline works end to end: a `-batchmode` editor driving an
+IL2CPP player stripped at High returned all eight commands, and `Debug.RenderStats` tracked the
+scene's batching alternation — 4 batches from one instanced batch of 20 draw calls, then 23 with no
+instancing, then 4 again — with no counter unavailable.
+
 ## Discovery, and when it fails
 
-The player broadcasts on multicast `225.0.0.222:54997`. On this machine the editor never saw it:
-the host had a `198.18.0.1` interface alongside the LAN address — the signature of a VPN or proxy
-tunnel — and the player logged `Failed to initialize networking layer after 30 seconds`.
+The player broadcasts on multicast `225.0.0.222:54997`, and on this machine that was unreliable —
+sometimes listed within seconds, sometimes not at all. The host has a `198.18.0.1` interface
+alongside its LAN address, the signature of a VPN or proxy tunnel, and the player logs
+`Failed to initialize networking layer after 30 seconds` every run. Allow a listing to be retried
+rather than treating one empty result as "no player".
 
-`Connection.Connect` with an explicit `ip` bypasses discovery entirely and worked first time. Worth
-reaching for early rather than debugging multicast on a machine with a tunnel on it.
+**Connect by id, not by ip.** `Connection.Connect` with an `ip` appeared to succeed — it reported
+`Connected to: Autoconnected Player (id=65261)` — while `Connection.Status` showed the editor
+itself as the attached target, and every remote command then failed. Taking the id out of
+`Connection.List` and connecting to that attached to the real player every time.
 
 ## Counters
 

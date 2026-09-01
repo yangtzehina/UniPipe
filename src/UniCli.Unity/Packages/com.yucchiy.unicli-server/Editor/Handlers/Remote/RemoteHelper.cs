@@ -18,6 +18,8 @@ namespace UniCli.Server.Editor.Handlers.Remote
             if (requestedId > 0)
                 return requestedId;
 
+            EditorPlayerConnection.EnsureInitialized();
+
             var players = EditorConnection.instance.ConnectedPlayers;
             if (players.Count == 0)
                 throw new System.InvalidOperationException("No runtime player connected. Connect a Development Build first.");

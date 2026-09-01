@@ -2,6 +2,7 @@ using System.Threading;
 using System;
 using System.Threading.Tasks;
 using UnityEditorInternal;
+using UniCli.Server.Editor.Handlers.Remote;
 
 namespace UniCli.Server.Editor.Handlers
 {
@@ -23,6 +24,10 @@ namespace UniCli.Server.Editor.Handlers
 
         protected override ValueTask<ConnectionStatusResponse> ExecuteAsync(ConnectionConnectRequest request, CancellationToken cancellationToken)
         {
+            // The profiler channel attaches on its own; the message channel these commands ride
+            // on does not, and in batch mode nothing else will bring it up.
+            EditorPlayerConnection.EnsureInitialized();
+
             if (!string.IsNullOrEmpty(request.deviceId))
             {
                 ProfilerDriver.DirectURLConnect("device://" + request.deviceId);

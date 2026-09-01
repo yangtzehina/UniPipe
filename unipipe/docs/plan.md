@@ -217,9 +217,20 @@ batch covering 20 draw calls — at a constant 1924 triangles, since the geometr
 only the batching did.
 
 The gate this tier was held behind was a measured stripping matrix, because the command registry
-finds commands by reflection. Mono at stripping High with engine-code stripping kept all eight
-commands and every counter, so the `[Preserve]`/`[RequireDerived]` machinery holds. IL2CPP could not
-be measured — the module is not installed here — and is not assumed from that.
+finds commands by reflection. Both backends at stripping High with engine-code stripping kept all
+eight commands and every counter, so the `[Preserve]`/`[RequireDerived]` machinery and the emitted
+link.xml hold. Reflection-based discovery was never the problem.
+
+Finding that out corrected a wrong diagnosis and produced the more valuable fix. The first IL2CPP
+builds answered nothing, which looked exactly like stripping eating the registry; a probe inside the
+build showed the receiver present and all eight commands discovered. The failure was on the editor
+side: nothing initializes the editor's half of the player connection on its own — it comes up as a
+side effect of the profiler's attach control, which does not exist in batch mode — so a headless
+editor listed players, connected to them, and then reported none connected. Measured both ways with
+the same build: eight commands under an interactive editor, none under `-batchmode`, backend
+irrelevant. That is the CI topology exactly, so the package now calls
+`EditorConnection.instance.Initialize()` itself. With it, a `-batchmode` editor driving an IL2CPP
+player stripped at High tracked the scene's batching alternation end to end.
 
 Two things worth knowing before debugging a quiet player. The remote assembly needs `UNICLI_REMOTE`
 in the build's define symbols as well as `DEVELOPMENT_BUILD`; without it the receiver is not in the

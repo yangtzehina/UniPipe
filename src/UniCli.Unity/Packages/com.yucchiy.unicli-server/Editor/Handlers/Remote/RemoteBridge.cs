@@ -25,6 +25,7 @@ namespace UniCli.Server.Editor.Handlers.Remote
             if (_registered)
                 return;
 
+            EditorPlayerConnection.EnsureInitialized();
             EditorConnection.instance.Register(RuntimeMessageGuids.ChunkedResponse, OnChunkedResponse);
             _registered = true;
         }
