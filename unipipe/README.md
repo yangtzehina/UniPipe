@@ -1,5 +1,7 @@
 # UniPipe
 
+**English** · [中文](README.zh-CN.md)
+
 A fork of [yucchiy/UniCli](https://github.com/yucchiy/UniCli) that is growing into a single
 Unity editor-automation library: one command surface, several front ends (CLI, MCP, CI), and the
 capabilities we currently have to reach across two separate tools to get.
@@ -43,8 +45,19 @@ natively, the bridge becomes a reference implementation rather than a dependency
 
 ## Status
 
-Early. The bridge and the porting notes are verified working — see the plan for what has been
-measured and what has not. The library work described there has not started.
+Usable. The routing layer, the write-safety ring, self-hosted hot reload, MCP, the event channel,
+multi-instance discovery, the headless environment gate, render statistics and the read-only player
+tier have all landed and are verified against a live editor and a real build — the plan carries the
+measurements, one per capability. Unity EditMode 259/259, client 71/71.
+
+Measured on Unity 2022.3.62f3 / macOS arm64, and **only** there. The repository carries sample
+projects for 6000.0 and 6000.5; none of this work has been run against them, and several pieces are
+version-sensitive by construction — the `UnityStats` field set, the profiler counter names, and the
+frame debugger namespace that is already known to have moved once.
+
+Other known edges: the HTTP and MCP transports are loopback-only and have no authentication yet
+(both off by default); hot reload covers replacing a method body and nothing beyond it; frame
+debugger control is blocked, with the paths already tried recorded in the plan.
 
 ## Compliance
 

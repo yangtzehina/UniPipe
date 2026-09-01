@@ -1,7 +1,8 @@
 > **This is UniPipe**, a fork of [UniCli](https://github.com/yucchiy/UniCli) growing into a single
 > Unity editor-automation library. Everything the fork adds lives under [`unipipe/`](unipipe/) —
 > the rest of this tree is upstream UniCli, unchanged. Start at
-> [`unipipe/README.md`](unipipe/README.md).
+> [`unipipe/README.md`](unipipe/README.md) — 中文说明见
+> [`unipipe/README.zh-CN.md`](unipipe/README.zh-CN.md)。
 >
 > Upstream's own README follows.
 
