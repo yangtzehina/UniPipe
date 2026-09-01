@@ -67,7 +67,8 @@ So the command declares `Graphics | InteractiveWindows` and is refused headless 
 answering with a page of zeros that looks like data. See [`ci.md`](ci.md).
 
 For rendering regressions in CI, the environment that actually renders per frame is a built
-development player over PlayerConnection — the deferred player tier, not the editor.
+development player over PlayerConnection. That is `Debug.RenderStats`, and it works headless —
+see [`player-tier.md`](player-tier.md).
 
 ## Nothing drawn yet
 

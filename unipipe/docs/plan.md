@@ -110,9 +110,9 @@ Ordered by dependency, not by appeal. Sources are the tools surveyed in the mark
 Remote Control API, Chrome DevTools Protocol, the Unity MCP family, SingularityGroup's hot reload,
 AltTester, game-ci.
 
-**Status: the first three landed.** What follows marks what is done, what that
-changed, and what is still open. Details in the commit history; the shape of each
-decision is below.
+**Status: everything below has landed except frame debugger control, which is blocked, and the last
+two steps of the deferred tier.** What follows marks what is done, what that changed, and what is
+still open. Details in the commit history; the shape of each decision is below.
 
 **First, in parallel:**
 
@@ -137,18 +137,18 @@ subscription channel, so clients stop polling for compile state and domain reloa
 
 MCP arrived as a transport rather than a second implementation: a tool call becomes the same
 `CommandRequest` the pipe carries, so it inherits the command slot, the preconditions and the undo
-grouping for free — the payoff of having built the routing layer first.
+grouping for free — the payoff of having built the routing layer first. Eight tools are exposed
+rather than 136, with an escape hatch for the rest, because listing every command would spend an
+agent's context before it acts. The declared traits go into the tool descriptions, which is where
+they finally have a reader. Built without the official C# SDK, whose dependency tree the package
+does not otherwise need.
 
 Events answer a question status could not. Polling `Editor.Status` until it looks settled is lossy:
 a compile that started and finished between two polls reads the same as an idle editor, and so does
 a domain reload. Sequenced events with a cursor answer "what happened since I last looked", and the
 buffer survives the domain reload that would otherwise erase the record of itself. Clients that can
 hold a connection get the same events pushed over SSE; the stream reads the buffer directly, so a
-subscriber cannot starve the single command slot. Eight tools are exposed
-rather than 136, with an escape hatch for the rest, because listing every command would spend an
-agent's context before it acts. The declared traits go into the tool descriptions, which is where
-they finally have a reader. Built without the official C# SDK, whose dependency tree the package
-does not otherwise need.
+subscriber cannot starve the single command slot.
 
 **Then:** *(discovery, CI degradation and render statistics landed — [`instances.md`](instances.md),
 [`ci.md`](ci.md), [`render-stats.md`](render-stats.md); snapshot comparison was already there;
@@ -206,7 +206,7 @@ counters, because batch mode runs no per-frame display render at all. The same r
 real image: the GPU works, nothing drives a per-frame render. There are no render statistics to
 take rather than an API failing to report them. The environment gate turns that into a refusal. The
 environment that does render per frame is a built development player over PlayerConnection — the
-deferred player tier.
+player tier, which had been deferred.
 
 That tier's first step is now built, which is what closes the rendering-regression loop.
 `Debug.RenderStats` reads Unity's profiler counters inside a running player and reports the same
@@ -239,11 +239,21 @@ build and `Remote.List` simply times out. And multicast discovery failed on this
 `Connection.Connect` with an explicit IP worked first time.
 
 **Deferred, except the first step, which landed** — see [`player-tier.md`](player-tier.md): the
-player/device tiers — read-only observation, then an embedded agent for real
-devices, then IL2CPP code replacement. Highest cost, most unresolved assumptions; gated on a
-measured matrix of stripping levels against reflection capability. Note that avoiding GPL by
-copying designs rather than code addresses copyright only — distributing device-driving capability
-still meets ToS §17.2(gg) separately.
+player/device tiers — read-only observation, then an embedded agent for real devices, then IL2CPP
+code replacement.
+
+**The gate these were held behind is discharged.** It was a measured matrix of stripping levels
+against reflection capability, and the matrix now exists: both scripting backends, stripping High
+with engine-code stripping, all eight remote commands and every counter intact. Reflection-based
+discovery is not the obstacle it was assumed to be, and the operation tier no longer waits on that
+answer.
+
+What holds back the remaining two steps is something else, and it is worth not confusing with the
+gate that just cleared. An embedded agent for real devices distributes device-driving capability,
+which meets ToS §17.2(gg) on its own terms — avoiding GPL by copying designs rather than code
+addresses copyright and nothing else. And IL2CPP code replacement rests on assumptions this project
+has not tested at all; the stripping result says what survives a build, not what can be swapped
+inside one.
 
 ## What M1 changed, concretely
 
@@ -356,6 +366,55 @@ Not claims — measurements, on Unity 2022.3.62f3 / macOS arm64.
   editor — an object called three times kept its counter and its identity across an edit that
   changed its result and read a private field, with no recompile and no domain reload. The layout
   check refuses a type whose fields moved, which is the difference between this and a demo.
+
+- **MCP arrived as a transport, not a second implementation.** A tool call decodes into the same
+  `CommandRequest` the pipe carries, so it inherited the command slot, the preconditions and the
+  undo grouping without any of them being re-implemented. Verified as a client against a live
+  editor: a handshake echoing the version, `eval` returning 42, the escape hatch reaching a command
+  outside the eight exposed tools, and the two error classes staying distinct — an unknown tool
+  fails as protocol and never reaches the editor, a refused command comes back as a result the
+  model can act on.
+
+- **The event stream survives the reload it reports.** A compile produced `compile.started`,
+  `compile.finished`, `domain.reloading` and `domain.reloaded`, all still readable *after* the
+  domain reload that discarded everything in memory recording them. Over SSE, four play-mode
+  transitions arrived as they happened.
+
+- **Discovery refuses rather than guesses.** Against three editors on one machine: the advertised
+  one was reachable by name and from a directory outside any project; with two candidates and none
+  named, the command exited 1 and listed both paths instead of picking one; a record pointing at a
+  dead process was pruned while the live ones were left alone; and `UNICLI_PROJECT` holding a
+  relative path behaved exactly as before.
+
+- **Three headless failures, and only one of them looked like a failure.** `Screenshot.Capture`
+  under `-batchmode -nographics` took the editor down with a native crash in
+  `MonoGUIView::IsHDRActive()`, 44 stack frames of it. Under plain `-batchmode` it returned exit 0
+  and a fully transparent frame. `Scene.Screenshot3D` under `-nographics` returned exit 0 and a
+  buffer whose every byte, alpha included, was `0xCD`. With the environment gate in place the crash
+  became a refusal with exit 1 and the editor survived — zero crash frames in the same log — while
+  `Window.List` (197 window types) and `Compile` were untouched.
+
+- **The batching breakdown attributes a collapse to its cause.** Twenty cubes on twenty materials
+  measured 71 batches and no instancing; the same cubes on one instanced material measured 7,
+  attributed to 4 instanced batches covering 68 draw calls. The measurement also refuted the
+  obvious design: `Scene.Screenshot3D` renders correctly under plain `-batchmode`, so the
+  requirement is a graphics device rather than an interactive editor, and gating both on batch mode
+  would have removed the capability CI actually wants.
+
+- **A running player answers what the editor cannot.** Against a development build whose scene
+  alternated every three seconds: 23 batches with no instancing, then 4 from a single instanced
+  batch covering 20 draw calls, at a constant 1924 triangles — the geometry never changed, only the
+  batching. Both scripting backends at stripping High with engine-code stripping kept all eight
+  remote commands and all fifteen counters.
+
+- **The headless pipeline works end to end**, which it did not before. Nothing initializes the
+  editor's half of the player connection on its own, so a `-batchmode` editor listed players,
+  connected to them, and then reported none connected; the same player build answered eight
+  commands under an interactive editor and none under batch mode, backend irrelevant. With the
+  package initializing the connection itself, a `-batchmode` editor driving an IL2CPP player
+  stripped at High tracked the scene's batching alternation with no counter unavailable.
+
+- **Current totals: Unity EditMode 259/259, client 71/71**, zero formatting diffs.
 
 Still assumption: everything beyond replacing a single method body — signature changes, added
 fields, rebinding callers that already resolved the old shape. Those are the cases SingularityGroup
